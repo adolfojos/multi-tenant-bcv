@@ -20,7 +20,7 @@ class Database {
             // CREDENCIALES DE PRODUCCIÓN (Cambia estos datos por los de tu hosting)
             $this->host     = "sql312.ezyro.com"; 
             $this->db_name  = "ezyro_41444378_mtb_db";
-            $this->username = "	ezyro_41444378";
+            $this->username = "ezyro_41444378";
             $this->password = "9cde61e98ccf4bc";
         }
     }
