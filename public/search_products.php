@@ -1,5 +1,5 @@
 <?php
-// search_products.php
+// public/search_products.php
 require_once '../includes/Middleware.php';
 require_once '../config/db.php';
 
@@ -11,11 +11,10 @@ $db = $database->getConnection();
 $tenant_id = $_SESSION['tenant_id'] ?? 1;
 
 $term = isset($_GET['term']) ? trim($_GET['term']) : '';
-$limit = 50; // Límite de resultados para mantener la interfaz rápida
+$limit = 50; 
 
 try {
     if (empty($term)) {
-        // Si el buscador está vacío, traemos los últimos productos (comportamiento normal)
         $sql = "SELECT p.*, c.name as category_name 
                 FROM products p 
                 LEFT JOIN categories c ON p.category_id = c.id 
@@ -24,16 +23,17 @@ try {
         $stmt = $db->prepare($sql);
         $stmt->bindValue(':tid', $tenant_id, PDO::PARAM_INT);
     } else {
-        // Búsqueda real por nombre o descripción
+        // SOLUCIÓN: Usar identificadores únicos (:term1 y :term2)
         $sql = "SELECT p.*, c.name as category_name 
                 FROM products p 
                 LEFT JOIN categories c ON p.category_id = c.id 
                 WHERE p.tenant_id = :tid 
-                AND (p.name LIKE :term OR p.description LIKE :term) 
+                AND (p.name LIKE :term1 OR p.description LIKE :term2) 
                 ORDER BY p.name ASC LIMIT :limit";
         $stmt = $db->prepare($sql);
         $stmt->bindValue(':tid', $tenant_id, PDO::PARAM_INT);
-        $stmt->bindValue(':term', '%' . $term . '%', PDO::PARAM_STR);
+        $stmt->bindValue(':term1', '%' . $term . '%', PDO::PARAM_STR);
+        $stmt->bindValue(':term2', '%' . $term . '%', PDO::PARAM_STR);
     }
     
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
@@ -45,5 +45,6 @@ try {
 
 } catch (Exception $e) {
     header('Content-Type: application/json');
-    echo json_encode(['status' => 'error', 'message' => 'Error al buscar productos']);
+    // TIP: Imprimir el $e->getMessage() te ayudará a ver el error real si falla en el futuro
+    echo json_encode(['status' => 'error', 'message' => 'Error BD: ' . $e->getMessage()]);
 }
