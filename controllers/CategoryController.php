@@ -48,7 +48,7 @@ try {
 
 $headerConfig = [
     'title'  => 'Categorías',
-    'icon'   => 'fas fa-tags text-primary me-2',
+    'icon'   => 'fas fa-tags',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [

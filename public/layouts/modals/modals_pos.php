@@ -103,3 +103,52 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modalDefault" tabindex="-1" aria-labelledby="modalDefaultLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalDefaultLabel">
+                    <i class="fas fa-chart-line me-2"></i>Resumen de Ventas - Hoy
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 text-center">
+                    <div class="col-6">
+                        <div class="p-3 border rounded bg-light">
+                            <small class="text-muted d-block text-uppercase fw-bold">Total USD</small>
+                            <h4 class="text-success fw-bold mb-0">$0.00</h4>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 border rounded bg-light">
+                            <small class="text-muted d-block text-uppercase fw-bold">Total BS</small>
+                            <h4 class="text-primary fw-bold mb-0">Bs. 0.00</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="list-group list-group-flush small">
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="fas fa-money-bill-wave me-2 text-muted"></i>Efectivo</span>
+                        <span class="fw-bold">$0.00</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="fas fa-mobile-alt me-2 text-muted"></i>Pago Móvil</span>
+                        <span class="fw-bold">$0.00</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="fas fa-credit-card me-2 text-muted"></i>Punto de Venta</span>
+                        <span class="fw-bold">$0.00</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar Reporte</button>
+            </div>
+        </div>
+    </div>
+</div>

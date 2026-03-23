@@ -151,7 +151,7 @@ $jsChartDates = $jsChartDates ?? '[]';
 
 $headerConfig = [
     'title'  => 'Resumen del Día',
-    'icon'   => 'fas fa-chart-pie text-primary me-2',
+    'icon'   => 'fas fa-chart-pie',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [

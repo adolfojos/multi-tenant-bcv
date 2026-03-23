@@ -73,7 +73,7 @@ try {
 
 $headerConfig = [
     'title'  => 'Inventario',
-    'icon'   => 'fas fa-box text-primary me-2',
+    'icon'   => 'fas fa-box',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [

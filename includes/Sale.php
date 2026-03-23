@@ -40,7 +40,11 @@ class Sale {
                 $total_usd += ($unit_price * $item['qty']);
             }
 
-            $total_bs = $total_usd * $current_exchange_rate;
+            // Redondeamos el total USD a 2 decimales para limpiar micro-decimales de los márgenes
+            $total_usd = round($total_usd, 2); 
+
+            // Calculamos el total en Bs y lo redondeamos también a 2 decimales
+            $total_bs = round($total_usd * $current_exchange_rate, 2);
 
             $sqlHead = "INSERT INTO sales 
                         (tenant_id, user_id, total_amount_usd, total_amount_bs, exchange_rate, payment_method, created_at) 

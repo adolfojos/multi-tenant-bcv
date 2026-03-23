@@ -17,7 +17,7 @@ $db = $database->getConnection();
 $tenant_id = $_SESSION['tenant_id'] ?? 1;
 $tenant_name = $_SESSION['tenant_name'] ?? 'Mi Negocio';
 $pageTitle = "POS - " . $tenant_name;
-
+$pagina_actual = 'pos';
 // Gestión de Tasa BCV
 $rateObj = new ExchangeRate($db);
 $bcvRate = $rateObj->getSystemRate();
@@ -61,7 +61,7 @@ foreach($kpiQueries as $key => $query){
 
 $headerConfig = [
     'title'  => 'Punto de Venta',
-    'icon'   => 'fas fa-cash-register text-primary me-2',
+    'icon'   => 'fas fa-cash-register',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [
