@@ -154,6 +154,25 @@ include 'layouts/sidebar.php';
         </div>
     </div>
 
+    <div class="modal fade" id="modalConfirmAnular" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i> Confirmar Anulación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="fs-5 mb-0">¿Estás completamente seguro de que deseas <strong>ANULAR</strong> la venta <span id="spanTicketAnular" class="text-danger fw-bold"></span>?</p>
+                <p class="text-muted small mt-2">Esta acción no se puede deshacer y revertirá el stock/totales.</p>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarAnular">Sí, Anular Venta</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php include 'layouts/footer.php'; ?>
     <script src="js/sales_history.js"></script>
 </body>

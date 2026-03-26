@@ -21,7 +21,7 @@ function loadSaleDetails(id) {
                               </div>`;
 
     // Reemplaza 'get_sale_details.php' con la ruta real de tu endpoint
-    fetch(`../controllers/get_sale_details.php?id=${id}`)
+    fetch(`controllers/get_sale_details.php?id=${id}`)
         .then(response => response.text()) // o .json() si devuelves JSON y construyes el HTML aquí
         .then(data => {
             modalContent.innerHTML = data;
@@ -39,28 +39,52 @@ function printTicket(id) {
 }
 
 // Anular Venta
+let saleIdParaAnular = null; // Variable global para guardar el ID temporalmente
+
 function cancelSale(id) {
-    if (confirm(`¿Estás completamente seguro de que deseas ANULAR la venta #${id}? Esta acción no se puede deshacer.`)) {
-        // Reemplaza con la ruta de tu controlador de anulación
-        fetch(`../controllers/cancel_sale.php`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `id=${id}`
-        })
-        .then(response => response.json())
-        .then(data => {
-            if(data.success) {
-                alert('Venta anulada con éxito.');
-                location.reload(); // Recargar para reflejar cambios
-            } else {
-                alert('Error al anular: ' + (data.message || 'Error desconocido'));
-            }
-        })
-        .catch(error => console.error('Error:', error));
-    }
+    // 1. Guardamos el ID que queremos anular
+    saleIdParaAnular = id;
+    
+    // 2. Actualizamos el número de ticket en el texto del modal
+    document.getElementById('spanTicketAnular').textContent = `#${id}`;
+    
+    // 3. Mostramos el modal de Bootstrap
+    const myModal = new bootstrap.Modal(document.getElementById('modalConfirmAnular'));
+    myModal.show();
 }
+
+// Escuchador para el botón "Sí, Anular Venta" dentro del modal
+document.getElementById('btnConfirmarAnular').addEventListener('click', function() {
+    if (!saleIdParaAnular) return;
+
+    // Cambiar estado del botón para evitar múltiples clics
+    this.disabled = true;
+    this.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Procesando...`;
+
+    fetch(`controllers/cancel_sale.php`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `id=${saleIdParaAnular}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            // Éxito: podrías usar un SweetAlert aquí o simplemente recargar
+            location.reload(); 
+        } else {
+            alert('Error al anular: ' + (data.message || 'Error desconocido'));
+            this.disabled = false;
+            this.innerHTML = `Sí, Anular Venta`;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        this.disabled = false;
+        this.innerHTML = `Sí, Anular Venta`;
+    });
+});
 
 // Exportar Tabla a Excel (CSV)
 document.getElementById('btnExportExcel').addEventListener('click', function() {
