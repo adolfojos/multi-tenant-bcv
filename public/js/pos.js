@@ -78,7 +78,7 @@ $('#formNewCustomer').on('submit', function(e) {
     btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
 
     $.ajax({
-        url: 'actions_customer.php',
+        url: 'actions/actions_customer.php',
         type: 'POST',
         data: $(this).serialize() + '&action=create',
         dataType: 'json',

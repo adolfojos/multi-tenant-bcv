@@ -368,6 +368,56 @@ $headerConfig = [
 ];
 ?> ```
 
+## Archivo: ./controllers/CustomerController.php
+ ```php
+<?php
+require_once '../config/db.php';
+require_once '../includes/Middleware.php';
+require_once '../includes/Customer.php';
+require_once '../includes/ExchangeRate.php';
+require_once '../includes/helpers.php';
+
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+Middleware::checkAuth();
+// Si los vendedores también pueden ver clientes, puedes omitir onlyAdmin()
+// Middleware::onlyAdmin(); 
+
+$database = new Database();
+$db = $database->getConnection();
+$tenant_id = $_SESSION['tenant_id'] ?? 1;
+$tenant_name = $_SESSION['tenant_name'] ?? 'Mi Negocio';
+
+$pageTitle = "Clientes - " . $tenant_name;
+$current_page = "Clientes";
+$pagina_actual = basename($_SERVER['PHP_SELF']);
+
+// Obtener clientes
+$customerObj = new Customer($db, $tenant_id);
+$customers = $customerObj->getAll();
+
+// Obtener Tasa BCV para el header
+try {
+    $rateObj = new ExchangeRate($db);
+    $bcvRate = $rateObj->getSystemRate();
+} catch (Exception $e) {
+    $bcvRate = 36.00;
+}
+
+$headerConfig = [
+    'title'  => 'Directorio de Clientes',
+    'icon'   => 'fas fa-address-book',
+    'tenant' => $tenant_name,
+    'bcv'    => $bcvRate,
+    'button' => [
+        'text'   => 'Nuevo Cliente',
+        'icon'   => 'fas fa-user-plus me-1',
+        'target' => '#modalCustomerForm',
+        'class'  => 'btn btn-outline-primary mb-2 btn-sm text-start'
+    ]
+];
+?> ```
+
 ## Archivo: ./controllers/DashboardController.php
  ```php
 <?php
@@ -1089,6 +1139,57 @@ class Credit {
             $this->conn->rollBack();
             return ["status" => false, "message" => $e->getMessage()];
         }
+    }
+}
+?> ```
+
+## Archivo: ./includes/Customer.php
+ ```php
+<?php
+class Customer {
+    private $conn;
+    private $tenant_id;
+
+    public function __construct($db, $tenant_id) {
+        $this->conn = $db;
+        $this->tenant_id = $tenant_id;
+    }
+
+    public function getAll() {
+        $sql = "SELECT * FROM customers WHERE tenant_id = :tid ORDER BY name ASC";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([':tid' => $this->tenant_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function create($name, $document, $phone) {
+        $sql = "INSERT INTO customers (tenant_id, name, document, phone) VALUES (:tid, :n, :d, :p)";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute([
+            ':tid' => $this->tenant_id,
+            ':n' => $name,
+            ':d' => $document,
+            ':p' => $phone
+        ]);
+    }
+
+    public function update($id, $name, $document, $phone) {
+        $sql = "UPDATE customers SET name = :n, document = :d, phone = :p WHERE id = :id AND tenant_id = :tid";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute([
+            ':n' => $name,
+            ':d' => $document,
+            ':p' => $phone,
+            ':id' => $id,
+            ':tid' => $this->tenant_id
+        ]);
+    }
+
+    public function delete($id) {
+        // Validar si el cliente tiene créditos o ventas asociadas antes de borrar (Opcional pero recomendado)
+        $sql = "DELETE FROM customers WHERE id = :id AND tenant_id = :tid";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute([':id' => $id, ':tid' => $this->tenant_id]);
     }
 }
 ?> ```
@@ -2146,7 +2247,7 @@ class User {
                             </div>
                         </div>
                         <ul class="list-unstyled small fw-medium text-dark">
-                            <li class="mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i> Sincronizado en cualquier dispositivo.</li>
+                            <li class="mb-2"><i class="bi bi-check-circle-fill  "></i> Sincronizado en cualquier dispositivo.</li>
                             <li class="mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i> Stock automatizado y cierres precisos.</li>
                         </ul>
                     </div>
@@ -2496,12 +2597,12 @@ class User {
 </body>
 </html> ```
 
-## Archivo: ./public/actions_category.php
+## Archivo: ./public/actions/actions_category.php
  ```php
 <?php
-require_once '../config/db.php';
-require_once '../includes/Category.php';
-require_once '../includes/Middleware.php'; // Importante para la seguridad
+require_once '../../config/db.php';
+require_once '../../includes/Category.php';
+require_once '../../includes/Middleware.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
@@ -2563,14 +2664,14 @@ try {
     ]);
 } ```
 
-## Archivo: ./public/actions_config.php
+## Archivo: ./public/actions/actions_config.php
  ```php
 <?php
 session_start();
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
-require_once '../includes/ExchangeRate.php';
-require_once '../includes/helpers.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
+require_once '../../includes/ExchangeRate.php';
+require_once '../../includes/helpers.php';
 Middleware::checkAuth();
 Middleware::onlyAdmin();
 
@@ -2608,18 +2709,18 @@ $db = $database->getConnection();
     // Actualizar nombre en sesión si cambió
     $_SESSION['tenant_name'] = $business_name;
     $_SESSION['theme'] = $theme; // Útil para aplicar el modo oscuro desde PHP en tu layout
-
-    header("Location: configuration.php?success=1");
+    
+    header("Location: ../configuration.php?success=1");
     exit;
 } ```
 
-## Archivo: ./public/actions_credit.php
+## Archivo: ./public/actions/actions_credit.php
  ```php
 <?php
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
-require_once '../includes/Credit.php';
-require_once '../includes/ExchangeRate.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
+require_once '../../includes/Credit.php';
+require_once '../../includes/ExchangeRate.php';
 
 header('Content-Type: application/json');
 
@@ -2661,14 +2762,14 @@ try {
 }
 ?> ```
 
-## Archivo: ./public/actions_critical.php
+## Archivo: ./public/actions/actions_critical.php
  ```php
 <?php
 session_start();
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
-require_once '../includes/ExchangeRate.php';
-require_once '../includes/helpers.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
+require_once '../../includes/ExchangeRate.php';
+require_once '../../includes/helpers.php';
 Middleware::checkAuth();
 Middleware::onlyAdmin();
 
@@ -2726,11 +2827,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['critical_action'])) {
     exit;
 } ```
 
-## Archivo: ./public/actions_customer.php
+## Archivo: ./public/actions/actions_customer.php
  ```php
 <?php
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
+require_once '../../includes/Customer.php';
 
 header('Content-Type: application/json');
 
@@ -2742,48 +2844,70 @@ $db = $database->getConnection();
 $tenant_id = $_SESSION['tenant_id'];
 
 $action = $_POST['action'] ?? '';
+$customerObj = new Customer($db, $tenant_id);
 
 try {
-if ($action === 'search') {
+    if ($action === 'search') {
         $term = $_POST['term'] ?? '';
-        
-        // CORRECCIÓN: Usamos :term1 y :term2 en lugar de repetir :term
         $sql = "SELECT id, name, document FROM customers 
                 WHERE tenant_id = :tid 
                 AND (name LIKE :term1 OR document LIKE :term2) 
                 ORDER BY name ASC LIMIT 10";
-                
         $stmt = $db->prepare($sql);
         $stmt->execute([
             ':tid' => $tenant_id,
             ':term1' => "%$term%",
             ':term2' => "%$term%"
         ]);
-        
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode(['status' => true, 'data' => $results]);
+        echo json_encode(['status' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     }
     elseif ($action === 'create') {
         $name = trim($_POST['name'] ?? '');
         $document = trim($_POST['document'] ?? '');
         $phone = trim($_POST['phone'] ?? '');
 
-        if (empty($name)) {
-            throw new Exception("El nombre es obligatorio.");
-        }
+        if (empty($name)) throw new Exception("El nombre es obligatorio.");
 
-        $sql = "INSERT INTO customers (tenant_id, name, document, phone) VALUES (?, ?, ?, ?)";
-        $stmt = $db->prepare($sql);
-        $stmt->execute([$tenant_id, $name, $document, $phone]);
-        
-        $new_id = $db->lastInsertId();
-        
-        echo json_encode([
-            'status' => true, 
-            'message' => 'Cliente creado exitosamente',
-            'customer' => ['id' => $new_id, 'name' => $name, 'document' => $document]
-        ]);
+        if($customerObj->create($name, $document, $phone)) {
+            echo json_encode([
+                'status' => true, 
+                'message' => 'Cliente creado exitosamente',
+                'customer' => ['id' => $db->lastInsertId(), 'name' => $name, 'document' => $document]
+            ]);
+        } else {
+            throw new Exception("Error al guardar en la base de datos.");
+        }
     } 
+    elseif ($action === 'update') {
+        $id = (int)($_POST['id'] ?? 0);
+        $name = trim($_POST['name'] ?? '');
+        $document = trim($_POST['document'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+
+        if (empty($id) || empty($name)) throw new Exception("Datos insuficientes.");
+
+        if($customerObj->update($id, $name, $document, $phone)) {
+            echo json_encode(['status' => true, 'message' => 'Cliente actualizado exitosamente']);
+        } else {
+            throw new Exception("Error al actualizar.");
+        }
+    }
+    elseif ($action === 'delete') {
+        $id = (int)($_POST['id'] ?? 0);
+        if (empty($id)) throw new Exception("ID no válido.");
+
+        // Aquí podrías envolver el borrado en un try-catch por si falla por Foreign Keys (ventas asociadas)
+        try {
+            $customerObj->delete($id);
+            echo json_encode(['status' => true, 'message' => 'Cliente eliminado exitosamente']);
+        } catch (PDOException $e) {
+            // Error 23000 es violación de restricción de clave foránea
+            if ($e->getCode() == '23000') {
+                throw new Exception("No se puede eliminar el cliente porque tiene ventas o créditos asociados.");
+            }
+            throw $e;
+        }
+    }
     else {
         throw new Exception('Acción no válida.');
     }
@@ -2792,11 +2916,11 @@ if ($action === 'search') {
 }
 ?> ```
 
-## Archivo: ./public/actions_product.php
+## Archivo: ./public/actions/actions_product.php
  ```php
 <?php
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
 
 // 1. Seguridad: Verificar que el usuario esté logueado
 if (session_status() === PHP_SESSION_NONE) session_start();
@@ -2946,13 +3070,13 @@ try {
 }
 ?> ```
 
-## Archivo: ./public/actions_rate.php
+## Archivo: ./public/actions/actions_rate.php
  ```php
 <?php
 // public/actions_rate.php
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
-require_once '../includes/ExchangeRate.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
+require_once '../../includes/ExchangeRate.php';
 
 // 1. Forzar respuesta JSON estricta
 header('Content-Type: application/json');
@@ -2996,12 +3120,12 @@ try {
 }
 ?> ```
 
-## Archivo: ./public/actions_user.php
+## Archivo: ./public/actions/actions_user.php
  ```php
 <?php
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
-require_once '../includes/User.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
+require_once '../../includes/User.php';
 
 session_start();
 Middleware::onlyAdmin(); // Solo admins tocan esto
@@ -3616,7 +3740,7 @@ include 'layouts/sidebar.php';
             $('#btnSubmitPayment').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
 
             $.ajax({
-                url: 'actions_credit.php',
+                url: 'actions/actions_credit.php',
                 type: 'POST',
                 data: $(this).serialize(),
                 dataType: 'json',
@@ -3653,7 +3777,7 @@ include 'layouts/sidebar.php';
         modal.show();
 
         $.ajax({
-            url: 'actions_credit.php',
+            url: 'actions/actions_credit.php',
             type: 'POST',
             data: { action: 'get_history', credit_id: credit_id },
             dataType: 'json',
@@ -19462,6 +19586,105 @@ fieldset legend {
     padding: 5px;
 } ```
 
+## Archivo: ./public/customers.php
+ ```php
+<?php
+require_once '../controllers/CustomerController.php';
+include 'layouts/head.php';
+include 'layouts/navbar.php';
+include 'layouts/sidebar.php'; 
+?>
+<main class="app-main">
+    <?= render_content_header($headerConfig) ?>
+    <div class="app-content">
+        <div class="container-fluid">
+            
+            <div class="card card-outline card-primary shadow-sm">
+                <div class="card-header border-0 pb-0">
+                    <h3 class="card-title fw-bold">Lista de Clientes</h3>
+                </div>
+                <div class="card-body p-3">
+                    <div class="table-responsive">
+                        <table id="customersTable" class="table table-hover table-striped align-middle mb-0 w-100">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nombre Completo</th>
+                                    <th>Cédula / RIF</th>
+                                    <th>Teléfono</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach($customers as $c): 
+                                    // Preparamos los datos para pasarlos al botón de editar de forma segura
+                                    $c_json = htmlspecialchars(json_encode($c), ENT_QUOTES, 'UTF-8');
+                                ?>
+                                <tr>
+                                    <td class="fw-bold text-primary">
+                                        <i class="fas fa-user-circle text-secondary me-2"></i><?= htmlspecialchars($c['name']) ?>
+                                    </td>
+                                    <td><?= !empty($c['document']) ? htmlspecialchars($c['document']) : '<span class="text-muted fst-italic">No registrado</span>' ?></td>
+                                    <td><?= !empty($c['phone']) ? htmlspecialchars($c['phone']) : '<span class="text-muted fst-italic">No registrado</span>' ?></td>
+                                    
+                                    <td class="text-end text-nowrap">
+                                        <button class="btn btn-sm btn-outline-warning me-1" onclick='openCustomerModal(<?= $c_json ?>)' title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomer(<?= $c['id'] ?>, '<?= addslashes(htmlspecialchars($c['name'])) ?>')" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="modalCustomerForm" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="formCustomer" class="modal-content shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalCustomerTitle"><i class="fas fa-user-plus me-2"></i> Nuevo Cliente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" name="action" id="customerAction" value="create">
+                <input type="hidden" name="id" id="customerId">
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold small">Nombre Completo <span class="text-danger">*</span></label>
+                    <input type="text" name="name" id="customerName" class="form-control" required placeholder="Ej: Juan Pérez">
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold small">Cédula / RIF</label>
+                        <input type="text" name="document" id="customerDoc" class="form-control" placeholder="Ej: V-12345678">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold small">Teléfono</label>
+                        <input type="text" name="phone" id="customerPhone" class="form-control" placeholder="Ej: 0414-1234567">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary px-4 fw-bold" id="btnSaveCustomer">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php include 'layouts/footer.php'; ?>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="js/customers.js"></script>
+</body>
+</html> ```
+
 ## Archivo: ./public/dashboard.php
  ```php
 <?php
@@ -19796,7 +20019,7 @@ function confirmDelete(id, name) {
     if (!modalConfirmDeleteInstance) return alert('El modal aún no se ha inicializado.');
 
     document.getElementById('deleteProductName').innerText = name;
-    document.getElementById('btnConfirmDelete').href = `actions_product.php?action=delete&id=${id}`;
+    document.getElementById('btnConfirmDelete').href = `actions/actions_product.php?action=delete&id=${id}`;
     
     modalConfirmDeleteInstance.show();
 } ```
@@ -20979,16 +21202,6 @@ function confirmDelete(id, name) {
 //# sourceMappingURL=adminlte.js.map
  ```
 
-## Archivo: ./public/js/adminlte.min.js
- ```javascript
-/*!
- * AdminLTE v4.0.0-rc3 (https://adminlte.io)
- * Copyright 2014-2025 Colorlib <https://colorlib.com>
- * Licensed under MIT (https://github.com/ColorlibHQ/AdminLTE/blob/master/LICENSE)
- */
-!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t((e="undefined"!=typeof globalThis?globalThis:e||self).adminlte={})}(this,function(e){"use strict";const t=[],n=e=>{"loading"===document.readyState?(t.length||document.addEventListener("DOMContentLoaded",()=>{for(const e of t)e()}),t.push(e)):e()},i=(e,t=500)=>{e.style.transitionProperty="height, margin, padding",e.style.transitionDuration=`${t}ms`,e.style.boxSizing="border-box",e.style.height=`${e.offsetHeight}px`,e.style.overflow="hidden",globalThis.setTimeout(()=>{e.style.height="0",e.style.paddingTop="0",e.style.paddingBottom="0",e.style.marginTop="0",e.style.marginBottom="0"},1),globalThis.setTimeout(()=>{e.style.display="none",e.style.removeProperty("height"),e.style.removeProperty("padding-top"),e.style.removeProperty("padding-bottom"),e.style.removeProperty("margin-top"),e.style.removeProperty("margin-bottom"),e.style.removeProperty("overflow"),e.style.removeProperty("transition-duration"),e.style.removeProperty("transition-property")},t)},o=(e,t=500)=>{e.style.removeProperty("display");let{display:n}=globalThis.getComputedStyle(e);"none"===n&&(n="block"),e.style.display=n;const i=e.offsetHeight;e.style.overflow="hidden",e.style.height="0",e.style.paddingTop="0",e.style.paddingBottom="0",e.style.marginTop="0",e.style.marginBottom="0",globalThis.setTimeout(()=>{e.style.boxSizing="border-box",e.style.transitionProperty="height, margin, padding",e.style.transitionDuration=`${t}ms`,e.style.height=`${i}px`,e.style.removeProperty("padding-top"),e.style.removeProperty("padding-bottom"),e.style.removeProperty("margin-top"),e.style.removeProperty("margin-bottom")},1),globalThis.setTimeout(()=>{e.style.removeProperty("height"),e.style.removeProperty("overflow"),e.style.removeProperty("transition-duration"),e.style.removeProperty("transition-property")},t)},s="hold-transition";class a{_element;constructor(e){this._element=e}holdTransition(){let e;window.addEventListener("resize",()=>{document.body.classList.add(s),clearTimeout(e),e=setTimeout(()=>{document.body.classList.remove(s)},400)})}}n(()=>{new a(document.body).holdTransition(),setTimeout(()=>{document.body.classList.add("app-loaded")},400)});const r=".lte.card-widget",l=`collapsed${r}`,c=`expanded${r}`,d=`remove${r}`,m=`maximized${r}`,u=`minimized${r}`,h="card",p="collapsed-card",g="collapsing-card",y="expanding-card",v="was-collapsed",b="maximized-card",f='[data-lte-toggle="card-remove"]',E='[data-lte-toggle="card-collapse"]',_='[data-lte-toggle="card-maximize"]',S=`.${h}`,L=".card-body",w=".card-footer",A={animationSpeed:500,collapseTrigger:E,removeTrigger:f,maximizeTrigger:_};class k{_element;_parent;_clone;_config;constructor(e,t){this._element=e,this._parent=e.closest(S),e.classList.contains(h)&&(this._parent=e),this._config={...A,...t}}collapse(){const e=new Event(l);if(this._parent){this._parent.classList.add(g);const e=this._parent?.querySelectorAll(`${L}, ${w}`);e.forEach(e=>{e instanceof HTMLElement&&i(e,this._config.animationSpeed)}),setTimeout(()=>{this._parent&&(this._parent.classList.add(p),this._parent.classList.remove(g))},this._config.animationSpeed)}this._element?.dispatchEvent(e)}expand(){const e=new Event(c);if(this._parent){this._parent.classList.add(y);const e=this._parent?.querySelectorAll(`${L}, ${w}`);e.forEach(e=>{e instanceof HTMLElement&&o(e,this._config.animationSpeed)}),setTimeout(()=>{this._parent&&this._parent.classList.remove(p,y)},this._config.animationSpeed)}this._element?.dispatchEvent(e)}remove(){const e=new Event(d);this._parent&&i(this._parent,this._config.animationSpeed),this._element?.dispatchEvent(e)}toggle(){this._parent?.classList.contains(p)?this.expand():this.collapse()}maximize(){const e=new Event(m);this._parent&&(this._parent.style.height=`${this._parent.offsetHeight}px`,this._parent.style.width=`${this._parent.offsetWidth}px`,this._parent.style.transition="all .15s",setTimeout(()=>{const e=document.querySelector("html");e&&e.classList.add(b),this._parent&&(this._parent.classList.add(b),this._parent.classList.contains(p)&&this._parent.classList.add(v))},150)),this._element?.dispatchEvent(e)}minimize(){const e=new Event(u);this._parent&&(this._parent.style.height="auto",this._parent.style.width="auto",this._parent.style.transition="all .15s",setTimeout(()=>{const e=document.querySelector("html");e&&e.classList.remove(b),this._parent&&(this._parent.classList.remove(b),this._parent?.classList.contains(v)&&this._parent.classList.remove(v))},10)),this._element?.dispatchEvent(e)}toggleMaximize(){this._parent?.classList.contains(b)?this.minimize():this.maximize()}}n(()=>{document.querySelectorAll(E).forEach(e=>{e.addEventListener("click",e=>{e.preventDefault();const t=e.target;new k(t,A).toggle()})}),document.querySelectorAll(f).forEach(e=>{e.addEventListener("click",e=>{e.preventDefault();const t=e.target;new k(t,A).remove()})}),document.querySelectorAll(_).forEach(e=>{e.addEventListener("click",e=>{e.preventDefault();const t=e.target;new k(t,A).toggleMaximize()})})});const x=".lte.treeview",q=`expanded${x}`,T=`collapsed${x}`,$="menu-open",M=".nav-item",D=".nav-treeview",N={animationSpeed:300,accordion:!0};class P{_element;_config;constructor(e,t){this._element=e,this._config={...N,...t}}open(){const e=new Event(q);if(this._config.accordion){const e=this._element.parentElement?.querySelectorAll(`${M}.${$}`);e?.forEach(e=>{if(e!==this._element.parentElement){e.classList.remove($);const t=e?.querySelector(D);t&&i(t,this._config.animationSpeed)}})}this._element.classList.add($);const t=this._element?.querySelector(D);t&&o(t,this._config.animationSpeed),this._element.dispatchEvent(e)}close(){const e=new Event(T);this._element.classList.remove($);const t=this._element?.querySelector(D);t&&i(t,this._config.animationSpeed),this._element.dispatchEvent(e)}toggle(){this._element.classList.contains($)?this.close():this.open()}}n(()=>{document.querySelectorAll('[data-lte-toggle="treeview"]').forEach(e=>{e.addEventListener("click",e=>{const t=e.target,n=t.closest(M),i=t.closest(".nav-link"),o=e.currentTarget;if("#"!==t?.getAttribute("href")&&"#"!==i?.getAttribute("href")||e.preventDefault(),n){const e=o.dataset.accordion,t=o.dataset.animationSpeed,i={accordion:void 0===e?N.accordion:"true"===e,animationSpeed:void 0===t?N.animationSpeed:Number(t)};new P(n,i).toggle()}})})});const F=".lte.direct-chat",R=`expanded${F}`,C=`collapsed${F}`,z="direct-chat-contacts-open";class B{_element;constructor(e){this._element=e}toggle(){if(this._element.classList.contains(z)){const e=new Event(C);this._element.classList.remove(z),this._element.dispatchEvent(e)}else{const e=new Event(R);this._element.classList.add(z),this._element.dispatchEvent(e)}}}n(()=>{document.querySelectorAll('[data-lte-toggle="chat-pane"]').forEach(e=>{e.addEventListener("click",e=>{e.preventDefault();const t=e.target.closest(".direct-chat");t&&new B(t).toggle()})})});const H=".lte.fullscreen",K=`maximized${H}`,O=`minimized${H}`,W='[data-lte-toggle="fullscreen"]',I='[data-lte-icon="maximize"]',j='[data-lte-icon="minimize"]';class U{_element;_config;constructor(e,t){this._element=e,this._config=t}inFullScreen(){const e=new Event(K),t=document.querySelector(I),n=document.querySelector(j);document.documentElement.requestFullscreen(),t&&(t.style.display="none"),n&&(n.style.display="block"),this._element.dispatchEvent(e)}outFullscreen(){const e=new Event(O),t=document.querySelector(I),n=document.querySelector(j);document.exitFullscreen(),t&&(t.style.display="block"),n&&(n.style.display="none"),this._element.dispatchEvent(e)}toggleFullScreen(){document.fullscreenEnabled&&(document.fullscreenElement?this.outFullscreen():this.inFullScreen())}}n(()=>{document.querySelectorAll(W).forEach(e=>{e.addEventListener("click",e=>{e.preventDefault();const t=e.target.closest(W);t&&new U(t,void 0).toggleFullScreen()})})});const V=".lte.push-menu",G=`open${V}`,J=`collapse${V}`,Q="sidebar-mini",X="sidebar-collapse",Y="sidebar-open",Z="sidebar-expand",ee=`[class*="${Z}"]`,te='[data-lte-toggle="sidebar"]',ne={sidebarBreakpoint:992};class ie{_element;_config;constructor(e,t){this._element=e,this._config={...ne,...t}}menusClose(){document.querySelectorAll(".nav-treeview").forEach(e=>{e.style.removeProperty("display"),e.style.removeProperty("height")});const e=document.querySelector(".sidebar-menu"),t=e?.querySelectorAll(".nav-item");t&&t.forEach(e=>{e.classList.remove("menu-open")})}expand(){const e=new Event(G);document.body.classList.remove(X),document.body.classList.add(Y),this._element.dispatchEvent(e)}collapse(){const e=new Event(J);document.body.classList.remove(Y),document.body.classList.add(X),this._element.dispatchEvent(e)}addSidebarBreakPoint(){const e=document.querySelector(ee)?.classList??[],t=Array.from(e).find(e=>e.startsWith(Z))??"",n=document.getElementsByClassName(t)[0],i=globalThis.getComputedStyle(n,"::before").getPropertyValue("content");this._config={...this._config,sidebarBreakpoint:Number(i.replace(/[^\d.-]/g,""))},window.innerWidth<=this._config.sidebarBreakpoint?this.collapse():(document.body.classList.contains(Q)||this.expand(),document.body.classList.contains(Q)&&document.body.classList.contains(X)&&this.collapse())}toggle(){document.body.classList.contains(X)?this.expand():this.collapse()}init(){this.addSidebarBreakPoint()}}n(()=>{const e=document?.querySelector(".app-sidebar");if(e){const t=new ie(e,ne);t.init(),window.addEventListener("resize",()=>{t.init()})}const t=document.createElement("div");t.className="sidebar-overlay",document.querySelector(".app-wrapper")?.append(t);let n=!1;t.addEventListener("touchstart",()=>{n=!1},{passive:!0}),t.addEventListener("touchmove",()=>{n=!0},{passive:!0}),t.addEventListener("touchend",e=>{if(!n){e.preventDefault();const t=e.currentTarget;new ie(t,ne).collapse()}},{passive:!1}),t.addEventListener("click",e=>{e.preventDefault();const t=e.currentTarget;new ie(t,ne).collapse()}),document.querySelectorAll(te).forEach(e=>{e.addEventListener("click",e=>{e.preventDefault();let t=e.currentTarget;"sidebar"!==t?.dataset.lteToggle&&(t=t?.closest(te)),t&&(e?.preventDefault(),new ie(t,ne).toggle())})})});class oe{config;liveRegion=null;focusHistory=[];constructor(e={}){this.config={announcements:!0,skipLinks:!0,focusManagement:!0,keyboardNavigation:!0,reducedMotion:!0,...e},this.init()}init(){this.config.announcements&&this.createLiveRegion(),this.config.skipLinks&&this.addSkipLinks(),this.config.focusManagement&&this.initFocusManagement(),this.config.keyboardNavigation&&this.initKeyboardNavigation(),this.config.reducedMotion&&this.respectReducedMotion(),this.initErrorAnnouncements(),this.initTableAccessibility(),this.initFormAccessibility()}createLiveRegion(){this.liveRegion||(this.liveRegion=document.createElement("div"),this.liveRegion.id="live-region",this.liveRegion.className="live-region",this.liveRegion.setAttribute("aria-live","polite"),this.liveRegion.setAttribute("aria-atomic","true"),this.liveRegion.setAttribute("role","status"),document.body.append(this.liveRegion))}addSkipLinks(){const e=document.createElement("div");e.className="skip-links";const t=document.createElement("a");t.href="#main",t.className="skip-link",t.textContent="Skip to main content";const n=document.createElement("a");n.href="#navigation",n.className="skip-link",n.textContent="Skip to navigation",e.append(t),e.append(n),document.body.insertBefore(e,document.body.firstChild),this.ensureSkipTargets()}ensureSkipTargets(){const e=document.querySelector('#main, main, [role="main"]');e&&!e.id&&(e.id="main"),e&&!e.hasAttribute("tabindex")&&e.setAttribute("tabindex","-1");const t=document.querySelector('#navigation, nav, [role="navigation"]');t&&!t.id&&(t.id="navigation"),t&&!t.hasAttribute("tabindex")&&t.setAttribute("tabindex","-1")}initFocusManagement(){document.addEventListener("keydown",e=>{"Tab"===e.key&&this.handleTabNavigation(e),"Escape"===e.key&&this.handleEscapeKey(e)}),this.initModalFocusManagement(),this.initDropdownFocusManagement()}handleTabNavigation(e){const t=this.getFocusableElements(),n=t.indexOf(document.activeElement);e.shiftKey?n<=0&&(e.preventDefault(),t.at(-1)?.focus()):n>=t.length-1&&(e.preventDefault(),t[0]?.focus())}getFocusableElements(){const e=["a[href]","button:not([disabled])","input:not([disabled])","select:not([disabled])","textarea:not([disabled])",'[tabindex]:not([tabindex="-1"])','[contenteditable="true"]'].join(", ");return Array.from(document.querySelectorAll(e))}handleEscapeKey(e){const t=document.querySelector(".modal.show"),n=document.querySelector(".dropdown-menu.show");if(t){const n=t.querySelector('[data-bs-dismiss="modal"]');n?.click(),e.preventDefault()}else if(n){const t=document.querySelector('[data-bs-toggle="dropdown"][aria-expanded="true"]');t?.click(),e.preventDefault()}}initKeyboardNavigation(){document.addEventListener("keydown",e=>{const t=e.target;t.closest(".nav, .navbar-nav, .dropdown-menu")&&this.handleMenuNavigation(e),"Enter"!==e.key&&" "!==e.key||!t.hasAttribute("role")||"button"!==t.getAttribute("role")||t.matches('button, input[type="button"], input[type="submit"]')||(e.preventDefault(),t.click())})}handleMenuNavigation(e){if(!["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Home","End"].includes(e.key))return;const t=e.target,n=Array.from(t.closest(".nav, .navbar-nav, .dropdown-menu")?.querySelectorAll("a, button")||[]),i=n.indexOf(t);let o;switch(e.key){case"ArrowDown":case"ArrowRight":o=i<n.length-1?i+1:0;break;case"ArrowUp":case"ArrowLeft":o=i>0?i-1:n.length-1;break;case"Home":o=0;break;case"End":o=n.length-1;break;default:return}e.preventDefault(),n[o]?.focus()}respectReducedMotion(){if(globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches){document.body.classList.add("reduce-motion"),document.documentElement.style.scrollBehavior="auto";const e=document.createElement("style");e.textContent="\n        *, *::before, *::after {\n          animation-duration: 0.01ms !important;\n          animation-iteration-count: 1 !important;\n          transition-duration: 0.01ms !important;\n        }\n      ",document.head.append(e)}}initErrorAnnouncements(){new MutationObserver(e=>{e.forEach(e=>{e.addedNodes.forEach(e=>{if(e.nodeType===Node.ELEMENT_NODE){const t=e;t.matches(".alert-danger, .invalid-feedback, .error")&&this.announce(t.textContent||"Error occurred","assertive"),t.matches(".alert-success, .success")&&this.announce(t.textContent||"Success","polite")}})})}).observe(document.body,{childList:!0,subtree:!0})}initTableAccessibility(){document.querySelectorAll("table").forEach(e=>{if(e.hasAttribute("role")||e.setAttribute("role","table"),e.querySelectorAll("th").forEach(e=>{if(!e.hasAttribute("scope")){const t=e.closest("thead"),n=0===e.cellIndex;t?e.setAttribute("scope","col"):n&&e.setAttribute("scope","row")}}),!e.querySelector("caption")&&e.hasAttribute("title")){const t=document.createElement("caption");t.textContent=e.getAttribute("title")||"",e.insertBefore(t,e.firstChild)}})}initFormAccessibility(){document.querySelectorAll("input, select, textarea").forEach(e=>{const t=e;if(!t.labels?.length&&!t.hasAttribute("aria-label")&&!t.hasAttribute("aria-labelledby")){const e=t.getAttribute("placeholder");e&&t.setAttribute("aria-label",e)}if(t.hasAttribute("required")){const e=t.labels?.[0];if(e&&!e.querySelector(".required-indicator")){const t=document.createElement("span");t.className="required-indicator sr-only",t.textContent=" (required)",e.append(t)}}t.addEventListener("invalid",()=>{this.handleFormError(t)})})}handleFormError(e){const t=`${e.id||e.name}-error`;let n=document.getElementById(t);n||(n=document.createElement("div"),n.id=t,n.className="invalid-feedback",n.setAttribute("role","alert"),e.parentNode?.insertBefore(n,e.nextSibling)),n.textContent=e.validationMessage,e.setAttribute("aria-describedby",t),e.classList.add("is-invalid"),this.announce(`Error in ${e.labels?.[0]?.textContent||e.name}: ${e.validationMessage}`,"assertive")}initModalFocusManagement(){document.addEventListener("shown.bs.modal",e=>{const t=e.target.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');t.length>0&&t[0].focus(),this.focusHistory.push(document.activeElement)}),document.addEventListener("hidden.bs.modal",()=>{const e=this.focusHistory.pop();e&&e.focus()})}initDropdownFocusManagement(){document.addEventListener("shown.bs.dropdown",e=>{const t=e.target.querySelector(".dropdown-menu"),n=t?.querySelector("a, button");n&&n.focus()})}announce(e,t="polite"){this.liveRegion||this.createLiveRegion(),this.liveRegion&&(this.liveRegion.setAttribute("aria-live",t),this.liveRegion.textContent=e,setTimeout(()=>{this.liveRegion&&(this.liveRegion.textContent="")},1e3))}focusElement(e){const t=document.querySelector(e);t&&(t.focus(),t.scrollIntoView({behavior:"smooth",block:"center"}))}trapFocus(e){const t=e.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),n=Array.from(t),i=n[0],o=n.at(-1);e.addEventListener("keydown",e=>{"Tab"===e.key&&(e.shiftKey?document.activeElement===i&&(o?.focus(),e.preventDefault()):document.activeElement===o&&(i.focus(),e.preventDefault()))})}addLandmarks(){if(!document.querySelector("main")){const e=document.querySelector(".app-main");e&&(e.setAttribute("role","main"),e.id="main")}document.querySelectorAll(".navbar-nav, .nav").forEach((e,t)=>{e.hasAttribute("role")||e.setAttribute("role","navigation"),e.hasAttribute("aria-label")||e.setAttribute("aria-label",`Navigation ${t+1}`)});const e=document.querySelector('form[role="search"], .navbar-search');e&&!e.hasAttribute("role")&&e.setAttribute("role","search")}}const se=e=>new oe(e);n(()=>{new a(document.body).holdTransition(),se({announcements:!0,skipLinks:!0,focusManagement:!0,keyboardNavigation:!0,reducedMotion:!0}).addLandmarks(),setTimeout(()=>{document.body.classList.add("app-loaded")},400)}),e.CardWidget=k,e.DirectChat=B,e.FullScreen=U,e.Layout=a,e.PushMenu=ie,e.Treeview=P,e.initAccessibility=se});
-//# sourceMappingURL=adminlte.min.js.map ```
-
 ## Archivo: ./public/js/categories.js
  ```javascript
     document.addEventListener("DOMContentLoaded", function() {
@@ -21032,7 +21245,7 @@ function confirmDelete(id, name) {
             fd.append('action', 'delete');
             fd.append('id', id);
 
-            fetch('actions_category.php', { 
+            fetch('actions/actions_category.php', { 
                 method: 'POST', 
                 body: fd 
             })
@@ -21057,7 +21270,7 @@ function confirmDelete(id, name) {
             btnSubmit.disabled = true;
             btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
 
-            fetch('actions_category.php', {
+            fetch('actions/actions_category.php', {
                 method: 'POST',
                 body: new FormData(this)
             }).then(() => {
@@ -21113,7 +21326,7 @@ function confirmAction(task, actionType) {
         // Crear un formulario dinámico para enviarlo por POST de forma segura
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = 'actions_critical.php'; // Crearemos este archivo para tareas peligrosas
+        form.action = 'actions/actions_critical.php'; // Crearemos este archivo para tareas peligrosas
 
         const input = document.createElement('input');
         input.type = 'hidden';
@@ -21124,6 +21337,116 @@ function confirmAction(task, actionType) {
         document.body.appendChild(form);
         form.submit();
     }
+} ```
+
+## Archivo: ./public/js/customers.js
+ ```javascript
+let modalCustomerInstance;
+
+document.addEventListener("DOMContentLoaded", function() {
+    // Inicializar modal
+    modalCustomerInstance = new bootstrap.Modal(document.getElementById('modalCustomerForm'));
+
+    // Inicializar DataTable
+    if ($.fn.DataTable) {
+        $('#customersTable').DataTable({
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+            responsive: true,
+            order: [[0, 'asc']],
+            columnDefs: [{ orderable: false, targets: 3 }] // Desactiva orden en columna acciones
+        });
+    }
+
+    // Resetear formulario al abrir el modal para crear nuevo (clickeando el botón del header)
+    document.querySelector('[data-bs-target="#modalCustomerForm"]').addEventListener('click', () => {
+        document.getElementById('formCustomer').reset();
+        document.getElementById('customerAction').value = 'create';
+        document.getElementById('customerId').value = '';
+        document.getElementById('modalCustomerTitle').innerHTML = '<i class="fas fa-user-plus me-2"></i> Nuevo Cliente';
+    });
+
+    // Envío del formulario (Crear/Editar)
+    document.getElementById('formCustomer').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const btnSubmit = document.getElementById('btnSaveCustomer');
+        const originalText = btnSubmit.innerText;
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando...';
+
+        const formData = new FormData(this);
+
+        fetch('actions/actions_customer.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(res => {
+            if(res.status) {
+                Swal.fire('¡Éxito!', res.message, 'success').then(() => location.reload());
+            } else {
+                Swal.fire('Error', res.message, 'error');
+                btnSubmit.disabled = false;
+                btnSubmit.innerText = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error', 'Problema de conexión con el servidor.', 'error');
+            btnSubmit.disabled = false;
+            btnSubmit.innerText = originalText;
+        });
+    });
+});
+
+// Función para abrir modal en modo Edición
+function openCustomerModal(data) {
+    document.getElementById('customerAction').value = 'update';
+    document.getElementById('customerId').value = data.id;
+    document.getElementById('customerName').value = data.name;
+    document.getElementById('customerDoc').value = data.document || '';
+    document.getElementById('customerPhone').value = data.phone || '';
+    
+    document.getElementById('modalCustomerTitle').innerHTML = '<i class="fas fa-user-edit text-warning me-2"></i> Editar Cliente';
+    
+    modalCustomerInstance.show();
+}
+
+// Función para Eliminar con SweetAlert2
+function deleteCustomer(id, name) {
+    Swal.fire({
+        title: '¿Eliminar cliente?',
+        html: `Estás a punto de eliminar a <strong>${name}</strong>.<br>Esta acción no se puede deshacer.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const formData = new FormData();
+            formData.append('action', 'delete');
+            formData.append('id', id);
+
+            fetch('actions/actions_customer.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(res => {
+                if(res.status) {
+                    Swal.fire('¡Eliminado!', res.message, 'success').then(() => location.reload());
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'Problema al intentar eliminar.', 'error');
+            });
+        }
+    });
 } ```
 
 ## Archivo: ./public/js/dashboard.js
@@ -21282,7 +21605,7 @@ $('#formNewCustomer').on('submit', function(e) {
     btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
 
     $.ajax({
-        url: 'actions_customer.php',
+        url: 'actions/actions_customer.php',
         type: 'POST',
         data: $(this).serialize() + '&action=create',
         dataType: 'json',
@@ -21863,7 +22186,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
 
-        fetch('actions_user.php', {
+        fetch('actions/actions_user.php', {
             method: 'POST',
             body: formData
         })
@@ -21891,7 +22214,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
             formData.append('action', 'delete');
             formData.append('id', id);
 
-            fetch('actions_user.php', { method: 'POST', body: formData })
+            fetch('actions/actions_user.php', { method: 'POST', body: formData })
             .then(r => r.json())
             .then(res => {
                 if(res.status) location.reload();
@@ -22137,7 +22460,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 ## Archivo: ./public/layouts/modals/modals_admin.php
  ```php
 <div class="modal fade" id="modalInsert" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered"> <form action="actions_product.php" method="POST" class="modal-content shadow">
+    <div class="modal-dialog modal-lg modal-dialog-centered"> <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i> Añadir Nuevo Producto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -22233,7 +22556,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 
 <div class="modal fade" id="modalEdit" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <form action="actions_product.php" method="POST" class="modal-content shadow">
+        <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i> Editar Producto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -22813,88 +23136,94 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
       <span class="brand-text fw-light"><?= htmlspecialchars($tenant_name) ?></span>
     </a>
   </div>
+  
   <div class="sidebar-wrapper d-flex flex-column">
     <nav class="mt-2 flex-grow-1">
       <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation" aria-label="Main navigation">
-        
-        <li class="nav-header text-primary fw-bold">
-          <i class="bi bi-shop me-2"></i> ADMIN
-        </li>
-        <li class="nav-item">
-            <a href="dashboard.php" class="nav-link <?php echo ($pagina_actual == 'dashboard.php') ? 'active' : ''; ?>">
-                <i class="nav-icon bi bi-speedometer2"></i>
-                <p>Dashboard</p>
-             </a>
-        </li>
 
         <li class="nav-item">
-          <a href="pos.php" class="nav-link <?php echo ($pagina_actual == 'pos.php') ? 'active' : ''; ?>">
-            <i class="nav-icon bi bi-cash-stack"></i>
-            <p>Venta</p>
+          <a href="dashboard.php" class="nav-link <?= ($pagina_actual == 'dashboard.php') ? 'active' : ''; ?>">
+            <i class="nav-icon bi bi-speedometer2 text-info"></i>
+            <p>Dashboard</p>
           </a>
         </li>
 
+        <li class="nav-header text-uppercase opacity-75 small fw-bold">Operaciones</li>
         <li class="nav-item">
-          <a href="admin.php" class="nav-link <?php echo ($pagina_actual == 'admin.php') ? 'active' : ''; ?>">
-            <i class="nav-icon bi bi-box-seam"></i>
-            <p>Inventario</p>
+          <a href="pos.php" class="nav-link <?= ($pagina_actual == 'pos.php') ? 'active' : ''; ?>">
+            <i class="nav-icon bi bi-cart-plus-fill text-success"></i>
+            <p>Punto de Venta (POS)</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="sales_history.php" class="nav-link <?= ($pagina_actual == 'sales_history.php') ? 'active' : ''; ?>">
+            <i class="nav-icon bi bi-receipt text-warning"></i>
+            <p>Historial de Ventas</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="credits.php" class="nav-link <?= ($pagina_actual == 'credits.php') ? 'active' : ''; ?>">
+            <i class="nav-icon bi bi-calendar-check text-danger"></i>
+            <p>Cuentas por Cobrar</p>
           </a>
         </li>
 
+        <li class="nav-header text-uppercase opacity-75 small fw-bold">Almacén</li>
         <li class="nav-item">
-          <a href="categories.php" class="nav-link <?php echo ($pagina_actual == 'categories.php') ? 'active' : ''; ?>">
-            <i class="nav-icon bi bi-tags"></i>
+          <a href="admin.php" class="nav-link <?= ($pagina_actual == 'admin.php') ? 'active' : ''; ?>">
+            <i class="nav-icon bi bi-box-seam-fill text-primary"></i>
+            <p>Inventario / Productos</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="categories.php" class="nav-link <?= ($pagina_actual == 'categories.php') ? 'active' : ''; ?>">
+            <i class="nav-icon bi bi-tags-fill text-info"></i>
             <p>Categorías</p>
           </a>
         </li>
 
+        <li class="nav-header text-uppercase opacity-75 small fw-bold">Análisis</li>
         <li class="nav-item">
-          <a href="sales.php" class="nav-link <?php echo ($pagina_actual == 'sales.php') ? 'active' : ''; ?>">
-            <i class="nav-icon bi bi-wallet2"></i>
-            <p>Flujo de Caja</p>
+          <a href="sales.php" class="nav-link <?= ($pagina_actual == 'sales.php') ? 'active' : ''; ?>">
+            <i class="nav-icon bi bi-graph-up-arrow text-success"></i>
+            <p>Reporte de Ingresos</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="customers.php" class="nav-link <?= ($pagina_actual == 'customers.php') ? 'active' : ''; ?>">
+            <i class="nav-icon bi bi-people-fill text-primary"></i>
+            <p>Cartera de Clientes</p>
           </a>
         </li>
 
+        <li class="nav-header text-uppercase opacity-75 small fw-bold">Seguridad</li>
         <li class="nav-item">
-          <a href="sales_history.php" class="nav-link <?php echo ($pagina_actual == 'sales_history.php') ? 'active' : ''; ?>">
-            <i class="nav-icon bi bi-clock-history"></i>
-            <p>Historial</p>
-          </a>
-        </li>
-
-          <li class="nav-item">
-          <a href="credits.php" class="nav-link <?php echo ($pagina_actual == 'credits.php') ? 'active' : ''; ?>">
-            <i class="nav-icon bi bi-credit-card"></i>
-            <p>Créditos</p>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="users.php" class="nav-link <?php echo ($pagina_actual == 'users.php') ? 'active' : ''; ?>">
-            <i class="nav-icon bi bi-people"></i>
-            <p>Usuarios</p>
+          <a href="users.php" class="nav-link <?= ($pagina_actual == 'users.php') ? 'active' : ''; ?>">
+            <i class="nav-icon bi bi-shield-lock-fill text-secondary"></i>
+            <p>Gestión de Usuarios</p>
           </a>
         </li>
       </ul>
     </nav>
 
-    <div class="sidebar-footer border-top border-secondary pt-2 pb-2">
+    <div class="sidebar-footer border-top border-secondary pt-2 pb-3">
       <ul class="nav sidebar-menu flex-column">
         <li class="nav-item">
-          <a href="configuration.php" class="nav-link <?php echo ($pagina_actual == 'configuration.php') ? 'active' : ''; ?>">
-            <i class="nav-icon bi bi-gear"></i>
+          <a href="configuration.php" class="nav-link <?= ($pagina_actual == 'configuration.php') ? 'active' : ''; ?>">
+            <i class="nav-icon bi bi-gear-fill text-light"></i>
             <p>Configuración</p>
           </a>
         </li>
         <li class="nav-item">
-          <a href="logout.php" class="nav-link text-danger">
-            <i class="nav-icon bi bi-box-arrow-right"></i>
-            <p>Salir</p>
+          <a href="logout.php" class="nav-link">
+            <i class="nav-icon bi bi-door-open-fill text-danger"></i>
+            <p class="text-danger">Cerrar Sesión</p>
           </a>
         </li>
       </ul>
     </div>
   </div>
-  </aside> ```
+</aside> ```
 
 ## Archivo: ./public/login.php
  ```php

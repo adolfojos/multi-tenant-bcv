@@ -34,7 +34,7 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
 
-        fetch('actions_user.php', {
+        fetch('actions/actions_user.php', {
             method: 'POST',
             body: formData
         })
@@ -62,7 +62,7 @@
             formData.append('action', 'delete');
             formData.append('id', id);
 
-            fetch('actions_user.php', { method: 'POST', body: formData })
+            fetch('actions/actions_user.php', { method: 'POST', body: formData })
             .then(r => r.json())
             .then(res => {
                 if(res.status) location.reload();

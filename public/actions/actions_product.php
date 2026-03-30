@@ -1,6 +1,6 @@
 <?php
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
 
 // 1. Seguridad: Verificar que el usuario esté logueado
 if (session_status() === PHP_SESSION_NONE) session_start();

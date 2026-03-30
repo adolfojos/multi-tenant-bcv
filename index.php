@@ -397,7 +397,7 @@
                             </div>
                         </div>
                         <ul class="list-unstyled small fw-medium text-dark">
-                            <li class="mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i> Sincronizado en cualquier dispositivo.</li>
+                            <li class="mb-2"><i class="bi bi-check-circle-fill  "></i> Sincronizado en cualquier dispositivo.</li>
                             <li class="mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i> Stock automatizado y cierres precisos.</li>
                         </ul>
                     </div>

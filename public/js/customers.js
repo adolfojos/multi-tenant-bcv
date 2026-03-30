@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
         const formData = new FormData(this);
 
-        fetch('actions_customer.php', {
+        fetch('actions/actions_customer.php', {
             method: 'POST',
             body: formData
         })
@@ -86,7 +86,7 @@ function deleteCustomer(id, name) {
             formData.append('action', 'delete');
             formData.append('id', id);
 
-            fetch('actions_customer.php', {
+            fetch('actions/actions_customer.php', {
                 method: 'POST',
                 body: formData
             })

@@ -113,7 +113,7 @@ function confirmDelete(id, name) {
     if (!modalConfirmDeleteInstance) return alert('El modal aún no se ha inicializado.');
 
     document.getElementById('deleteProductName').innerText = name;
-    document.getElementById('btnConfirmDelete').href = `actions_product.php?action=delete&id=${id}`;
+    document.getElementById('btnConfirmDelete').href = `actions/actions_product.php?action=delete&id=${id}`;
     
     modalConfirmDeleteInstance.show();
 }

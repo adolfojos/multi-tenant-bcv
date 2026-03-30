@@ -1,8 +1,8 @@
 <?php
 // public/actions_rate.php
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
-require_once '../includes/ExchangeRate.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
+require_once '../../includes/ExchangeRate.php';
 
 // 1. Forzar respuesta JSON estricta
 header('Content-Type: application/json');

@@ -1,7 +1,7 @@
 <?php
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
-require_once '../includes/User.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
+require_once '../../includes/User.php';
 
 session_start();
 Middleware::onlyAdmin(); // Solo admins tocan esto

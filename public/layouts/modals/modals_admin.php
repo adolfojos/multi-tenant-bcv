@@ -1,5 +1,5 @@
 <div class="modal fade" id="modalInsert" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered"> <form action="actions_product.php" method="POST" class="modal-content shadow">
+    <div class="modal-dialog modal-lg modal-dialog-centered"> <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i> Añadir Nuevo Producto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -95,7 +95,7 @@
 
 <div class="modal fade" id="modalEdit" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <form action="actions_product.php" method="POST" class="modal-content shadow">
+        <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i> Editar Producto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>

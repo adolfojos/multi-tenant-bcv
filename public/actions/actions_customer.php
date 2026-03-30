@@ -1,7 +1,7 @@
 <?php
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
-require_once '../includes/Customer.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
+require_once '../../includes/Customer.php';
 
 header('Content-Type: application/json');
 
