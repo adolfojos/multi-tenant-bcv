@@ -118,20 +118,33 @@ include 'layouts/sidebar.php';
 
                                 <label class="small fw-bold text-secondary mb-1">Método de Pago</label>
                                 <select class="form-select mb-3 border-success" id="paymentMethod">
-                                    <option value="efectivo_bs">💵 Efectivo Bolívares</option>
-                                    <option value="efectivo_usd">🇺🇸 Efectivo Divisa</option>
-                                    <option value="pago_movil">📱 Pago Móvil</option>
-                                    <option value="punto">💳 Punto de Venta</option>
+                                    <option value="efectivo_bs"><i class="fas fa-money-bill-wave"></i>Efectivo Bolívares</option>
+                                    <option value="efectivo_usd"><i class="fas fa-dollar-sign"></i>Efectivo Divisa</option>
+                                    <option value="pago_movil"><i class="fas fa-mobile-alt"></i>Pago Móvil</option>
+                                    <option value="punto"><i class="fas fa-credit-card"></i>Punto de Venta</option>
+                                    <option value="credito"><i class="fas fa-file-invoice-dollar"></i>Crédito (Por Cobrar)</option>
                                 </select>
+
+                                <div id="creditData" style="display: none;" class="mb-3 p-3 bg-warning bg-opacity-10 border border-warning rounded">
+                                    <label class="small fw-bold text-dark">Cliente <span class="text-danger">*</span></label>
+                                    <input type="hidden" id="selectedCustomerId" name="customer_id" value="">
+                                    <div class="input-group mb-2">
+                                        <input type="text" id="selectedCustomerDisplay" class="form-control form-control-sm border-warning bg-white" placeholder="Ningún cliente..." readonly>
+                                        <button class="btn btn-warning btn-sm fw-bold text-dark" type="button" data-bs-toggle="modal" data-bs-target="#modalCustomer">
+                                            <i class="fas fa-search me-1"></i> Buscar
+                                        </button>
+                                    </div>
+                                    <label class="small fw-bold text-dark">Fecha límite de pago</label>
+                                    <input type="date" id="creditDueDate" name="due_date" class="form-control form-control-sm border-warning">
+                                </div>
 
                                 <div class="row g-2">
                                     <div class="col-9">
-                                        <button class="btn btn-outline-success w-100 fw-bold btn-lg shadow-sm" onclick="initiateCheckout()">
+                                        <button class="btn btn-outline-success w-100 fw-bold btn-lg shadow-sm" onclick="initiateCheckout()" id="btnConfirmSale">
                                             <i class="fas fa-check-circle me-1"></i> COBRAR
                                         </button>
                                     </div>
                                     <div class="col-3">
-                                        
                                         <button class="btn btn-outline-danger w-100 btn-lg shadow-sm" onclick="confirmClearCart()" title="Limpiar carrito">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
@@ -144,6 +157,57 @@ include 'layouts/sidebar.php';
             </div>
         </div>
     </main>
+
+    <div class="modal fade" id="modalCustomer" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-users me-2"></i> Seleccionar o Crear Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <ul class="nav nav-tabs mb-3" id="customerTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold text-dark" id="search-tab" data-bs-toggle="tab" data-bs-target="#searchCustomerPane" type="button">Buscar</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold text-dark" id="new-tab" data-bs-toggle="tab" data-bs-target="#newCustomerPane" type="button">Nuevo Cliente</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="searchCustomerPane">
+                            <input type="text" id="inputSearchCustomer" class="form-control mb-3 border-warning" placeholder="Buscar por nombre o cédula/RIF...">
+                            <div class="list-group" id="customerResults" style="max-height: 200px; overflow-y: auto;">
+                                <div class="text-center text-muted p-3 small">Escribe para buscar...</div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="newCustomerPane">
+                            <form id="formNewCustomer">
+                                <div class="mb-2">
+                                    <label class="form-label small fw-bold">Nombre Completo <span class="text-danger">*</span></label>
+                                    <input type="text" name="name" class="form-control" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-bold">Cédula / RIF</label>
+                                    <input type="text" name="document" class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold">Teléfono</label>
+                                    <input type="text" name="phone" class="form-control">
+                                </div>
+                                <button type="submit" class="btn btn-success w-100 fw-bold" id="btnSaveCustomer">
+                                    <i class="fas fa-save me-1"></i> Guardar y Seleccionar
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <?php
     include 'layouts/footer.php'; 
     include 'layouts/modals/modals_pos.php';
@@ -151,6 +215,7 @@ include 'layouts/sidebar.php';
 <script>
         window.APP_BCV_RATE = <?= $bcvRate ?>;
 </script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="js/pos.js"></script>
 </body>
 </html>

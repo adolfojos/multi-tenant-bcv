@@ -72,7 +72,7 @@ CREATE TABLE sales (
     total_amount_usd DECIMAL(10,2),
     total_amount_bs DECIMAL(12,2),
     exchange_rate DECIMAL(10,4), -- Guardamos la tasa del momento exacto
-    payment_method ENUM('efectivo_usd', 'efectivo_bs', 'pago_movil', 'zelle', 'punto') DEFAULT 'efectivo_bs',
+    payment_method ENUM('efectivo_usd', 'efectivo_bs', 'pago_movil', 'credito', 'punto') DEFAULT 'efectivo_bs',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tenant_id) REFERENCES tenants(id)
 );

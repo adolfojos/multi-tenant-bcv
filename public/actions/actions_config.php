@@ -1,9 +1,9 @@
 <?php
 session_start();
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
-require_once '../includes/ExchangeRate.php';
-require_once '../includes/helpers.php';
+require_once '../../includes/Middleware.php';
+require_once '../../config/db.php';
+require_once '../../includes/ExchangeRate.php';
+require_once '../../includes/helpers.php';
 Middleware::checkAuth();
 Middleware::onlyAdmin();
 
@@ -41,7 +41,7 @@ $db = $database->getConnection();
     // Actualizar nombre en sesión si cambió
     $_SESSION['tenant_name'] = $business_name;
     $_SESSION['theme'] = $theme; // Útil para aplicar el modo oscuro desde PHP en tu layout
-
-    header("Location: configuration.php?success=1");
+    
+    header("Location: ../configuration.php?success=1");
     exit;
 }

@@ -1,7 +1,7 @@
 <?php
-require_once '../config/db.php';
-require_once '../includes/Category.php';
-require_once '../includes/Middleware.php'; // Importante para la seguridad
+require_once '../../config/db.php';
+require_once '../../includes/Category.php';
+require_once '../../includes/Middleware.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 

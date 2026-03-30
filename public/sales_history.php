@@ -42,6 +42,10 @@ include 'layouts/sidebar.php';
                                     <span class="small"><i class="fas fa-mobile-alt text-info me-1"></i> Pago Móvil:</span>
                                     <span class="fw-bold"><?= $ticketsPMovil ?? 0 ?></span>
                                 </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span class="small"><i class="fas fa-file-invoice-dollar text-secondary me-1"></i> Crédito:</span>
+                                    <span class="fw-bold"><?= $ticketsCredito ?? 0 ?></span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -98,7 +102,7 @@ include 'layouts/sidebar.php';
                                         </td>
                                             <td><small><?= date('d/m/Y', strtotime($s['created_at'])) ?><br><span class="text-muted"><?= date('h:i A', strtotime($s['created_at'])) ?></span></small></td>
                                             
-                                            <td><small class="text-muted"><?= htmlspecialchars($s['products_summary'] ?? '3 Ítems') ?></small></td>
+                                            <td><small class="text-muted"><?= htmlspecialchars($s['products_summary'] ?? '0 Ítems') ?></small></td>
                                             
                                             <td class="fw-bold text-success">$ <?= number_format($s['total_amount_usd'], 2) ?></td>
                                             <td class="fw-bold">Bs. <?= number_format($s['total_amount_bs'] ?? 0, 2) ?></td>

@@ -37,7 +37,7 @@ function confirmAction(task, actionType) {
         // Crear un formulario dinámico para enviarlo por POST de forma segura
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = 'actions_critical.php'; // Crearemos este archivo para tareas peligrosas
+        form.action = 'actions/actions_critical.php'; // Crearemos este archivo para tareas peligrosas
 
         const input = document.createElement('input');
         input.type = 'hidden';

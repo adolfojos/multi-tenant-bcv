@@ -28,6 +28,7 @@ $totalDiaBs = 0;
 $ticketsEfectivo = 0;
 $ticketsPunto = 0;
 $ticketsPMovil = 0;
+$ticketsCredito = 0;
 // Gestión de Tasa BCV 
 try {
     $rateObj = new ExchangeRate($db);
@@ -49,6 +50,8 @@ foreach($sales as $s) {
         $ticketsPunto++;
     } elseif (strpos($method, 'movil') !== false || strpos($method, 'transferencia') !== false) {
         $ticketsPMovil++;
+    } elseif (strpos($method, 'credito') !== false) {
+        $ticketsCredito++;
     }
 }
 

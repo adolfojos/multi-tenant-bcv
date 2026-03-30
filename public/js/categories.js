@@ -39,7 +39,7 @@
             fd.append('action', 'delete');
             fd.append('id', id);
 
-            fetch('actions_category.php', { 
+            fetch('actions/actions_category.php', { 
                 method: 'POST', 
                 body: fd 
             })
@@ -64,7 +64,7 @@
             btnSubmit.disabled = true;
             btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
 
-            fetch('actions_category.php', {
+            fetch('actions/actions_category.php', {
                 method: 'POST',
                 body: new FormData(this)
             }).then(() => {

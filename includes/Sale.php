@@ -13,7 +13,7 @@ class Sale {
     /**
      * Procesa la venta: Valida stock, calcula totales y registra en BD
      */
-    public function createSale($cartItems, $payment_method, $current_exchange_rate) {
+    public function createSale($cartItems, $payment_method, $current_exchange_rate, $customer_id = null, $due_date = null) {
         try {
             $this->conn->beginTransaction();
 
@@ -40,7 +40,7 @@ class Sale {
                 $total_usd += ($unit_price * $item['qty']);
             }
 
-            // Redondeamos el total USD a 2 decimales para limpiar micro-decimales de los márgenes
+            // Redondeamos el total USD a 2 decimales
             $total_usd = round($total_usd, 2); 
 
             // Calculamos el total en Bs y lo redondeamos también a 2 decimales
@@ -78,6 +78,20 @@ class Sale {
                 $stmtS->execute([$item['qty'], $item['id'], $this->tenant_id]);
             }
 
+            // --- LÓGICA DE CRÉDITO ---
+            if ($payment_method === 'credito') {
+                if (!$customer_id) {
+                    throw new Exception("Debe seleccionar un cliente para las ventas a crédito.");
+                }
+                
+                $sqlCredit = "INSERT INTO credits (tenant_id, sale_id, customer_id, total_amount_usd, balance_usd, due_date) 
+                              VALUES (?, ?, ?, ?, ?, ?)";
+                $stmtCredit = $this->conn->prepare($sqlCredit);
+                // Aseguramos que el due_date sea null si viene vacío para evitar errores de base de datos
+                $db_due_date = !empty($due_date) ? $due_date : null;
+                $stmtCredit->execute([$this->tenant_id, $sale_id, $customer_id, $total_usd, $total_usd, $db_due_date]);
+            }
+
             $this->conn->commit();
 
             return [
@@ -103,7 +117,6 @@ class Sale {
                 LEFT JOIN users u ON s.user_id = u.id
                 WHERE s.tenant_id = :tid";
 
-        // Filtros actualizados según la nueva interfaz
         if ($filter == 'today') {
             $sql .= " AND DATE(s.created_at) = CURDATE()";
         } elseif ($filter == '7days') {
@@ -113,7 +126,6 @@ class Sale {
         } elseif ($filter == 'month') {
             $sql .= " AND MONTH(s.created_at) = MONTH(CURDATE()) AND YEAR(s.created_at) = YEAR(CURDATE())";
         }
-        // Si es 'all', no se aplica ningún filtro de fecha.
 
         $sql .= " ORDER BY s.id DESC";
 
@@ -122,11 +134,14 @@ class Sale {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getSaleHeader($sale_id) {
-        $sql = "SELECT s.*, t.business_name, t.rif,t.ticket_footer, u.username 
+public function getSaleHeader($sale_id) {
+        $sql = "SELECT s.*, t.business_name, t.rif,t.ticket_footer, u.username, 
+                       c.name as customer_name, c.document as customer_doc 
                 FROM sales s
                 JOIN tenants t ON s.tenant_id = t.id
                 LEFT JOIN users u ON s.user_id = u.id
+                LEFT JOIN credits cr ON s.id = cr.sale_id
+                LEFT JOIN customers c ON cr.customer_id = c.id
                 WHERE s.id = :id AND s.tenant_id = :tid"; 
         
         $stmt = $this->conn->prepare($sql);
@@ -182,25 +197,21 @@ class Sale {
         ]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    /**
-     * Anula una venta, devuelve el stock a los productos y actualiza el estado.
-     */
+
     public function cancelSale($sale_id) {
         try {
             $this->conn->beginTransaction();
 
             // 1. Verificar existencia y estado actual de la venta
-            $stmt = $this->conn->prepare("SELECT status FROM sales WHERE id = ? AND tenant_id = ? FOR UPDATE");
+            $stmt = $this->conn->prepare("SELECT status, payment_method FROM sales WHERE id = ? AND tenant_id = ? FOR UPDATE");
             $stmt->execute([$sale_id, $this->tenant_id]);
             $sale = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$sale) throw new Exception("Venta no encontrada.");
             if ($sale['status'] === 'anulada') throw new Exception("Esta venta ya fue anulada anteriormente.");
 
-            // 2. Obtener los productos y cantidades de la venta usando tu método existente
+            // 2. Obtener los productos y devolver stock
             $items = $this->getSaleItems($sale_id);
-
-            // 3. Devolver el stock a la tabla products
             $sqlStock = "UPDATE products SET stock = stock + ? WHERE id = ? AND tenant_id = ?";
             $stmtStock = $this->conn->prepare($sqlStock);
 
@@ -208,9 +219,15 @@ class Sale {
                 $stmtStock->execute([$item['quantity'], $item['product_id'], $this->tenant_id]);
             }
 
-            // 4. Cambiar el estado de la venta
+            // 3. Cambiar el estado de la venta
             $stmtUpdate = $this->conn->prepare("UPDATE sales SET status = 'anulada' WHERE id = ? AND tenant_id = ?");
             $stmtUpdate->execute([$sale_id, $this->tenant_id]);
+
+            // 4. Si fue un crédito, anular también el crédito asociado
+            if ($sale['payment_method'] === 'credito') {
+                $stmtCred = $this->conn->prepare("UPDATE credits SET status = 'cancelled' WHERE sale_id = ? AND tenant_id = ?");
+                $stmtCred->execute([$sale_id, $this->tenant_id]);
+            }
 
             $this->conn->commit();
             return ["status" => "success", "message" => "Venta anulada y stock restaurado correctamente."];

@@ -8,7 +8,7 @@ include 'layouts/sidebar.php';
         <?= render_content_header($headerConfig) ?>
         <div class="app-content">
             <div class="container-fluid">
-                <form id="formConfig" action="actions_config.php" method="POST">
+                <form id="formConfig" action="actions/actions_config.php" method="POST">
                     <div class="row">
                         <div class="col-md-8">
                             <div class="card card-outline card-primary mb-4 shadow-sm">

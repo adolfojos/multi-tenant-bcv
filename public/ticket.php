@@ -53,7 +53,21 @@ if (!$sale) {
     <?php endif; ?>
 </div>
 <div class="border-bottom"></div>
+<div class="text-center">
+    <?php if (isset($sale['status']) && $sale['status'] === 'anulada'): ?>
+        <div style="border: 2px solid #000; padding: 5px; margin-top: 5px; font-weight: bold; font-size: 16px;">
+            *** VENTA ANULADA ***
+        </div>
+    <?php endif; ?>
 
+    <?php if ($sale['payment_method'] === 'credito'): ?>
+        <div style="border: 1px dashed #000; padding: 5px; margin-top: 5px;">
+            <strong>VENTA A CRÉDITO</strong><br>
+            Cliente: <?= htmlspecialchars($sale['customer_name'] ?? 'N/A') ?><br>
+            C.I/RIF: <?= htmlspecialchars($sale['customer_doc'] ?? 'N/A') ?>
+        </div>
+    <?php endif; ?>
+</div>
 <table>
     <thead>
         <tr>

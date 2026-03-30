@@ -152,3 +152,53 @@
         </div>
     </div>
 </div>
+
+    <div class="modal fade" id="modalCustomer" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-users me-2"></i> Seleccionar o Crear Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <ul class="nav nav-tabs mb-3" id="customerTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold text-dark" id="search-tab" data-bs-toggle="tab" data-bs-target="#searchCustomerPane" type="button">Buscar</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold text-dark" id="new-tab" data-bs-toggle="tab" data-bs-target="#newCustomerPane" type="button">Nuevo Cliente</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="searchCustomerPane">
+                            <input type="text" id="inputSearchCustomer" class="form-control mb-3 border-warning" placeholder="Buscar por nombre o cédula/RIF...">
+                            <div class="list-group" id="customerResults" style="max-height: 200px; overflow-y: auto;">
+                                <div class="text-center text-muted p-3 small">Escribe para buscar...</div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="newCustomerPane">
+                            <form id="formNewCustomer">
+                                <div class="mb-2">
+                                    <label class="form-label small fw-bold">Nombre Completo <span class="text-danger">*</span></label>
+                                    <input type="text" name="name" class="form-control" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-bold">Cédula / RIF</label>
+                                    <input type="text" name="document" class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold">Teléfono</label>
+                                    <input type="text" name="phone" class="form-control">
+                                </div>
+                                <button type="submit" class="btn btn-success w-100 fw-bold" id="btnSaveCustomer">
+                                    <i class="fas fa-save me-1"></i> Guardar y Seleccionar
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
