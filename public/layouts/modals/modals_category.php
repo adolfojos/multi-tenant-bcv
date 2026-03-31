@@ -1,4 +1,4 @@
-<div class="modal fade" id="modalCat" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+<div class="modal fade" id="modalCat" tabindex="-1" aria-labelledby="modalTitle" >
     <div class="modal-dialog modal-dialog-centered">
         <form id="formCat" class="modal-content">
             <div class="modal-header bg-primary text-white">
@@ -20,7 +20,7 @@
         </form>
     </div>
 </div>
-<div class="modal fade" id="modalDelete" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalDelete" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content custom-modal-dark">
             <div class="modal-header bg-danger text-white">

@@ -1,4 +1,4 @@
-<div class="modal fade" id="modalView" tabindex="-1" aria-labelledby="modalViewLabel" aria-hidden="true">
+<div class="modal fade" id="modalView" tabindex="-1" aria-labelledby="modalViewLabel" >
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header bg-light">
@@ -16,7 +16,7 @@
             </div>
         </div>
     </div>
-    <div class="modal fade" id="modalConfirmAnular" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="modalConfirmAnular" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-danger text-white">

@@ -1,10 +1,12 @@
 <?php
-class Sale {
+class Sale
+{
     private $conn;
     private $tenant_id;
     private $user_id;
 
-    public function __construct($db, $tenant_id, $user_id) {
+    public function __construct($db, $tenant_id, $user_id)
+    {
         $this->conn = $db;
         $this->tenant_id = $tenant_id;
         $this->user_id = $user_id;
@@ -13,18 +15,19 @@ class Sale {
     /**
      * Procesa la venta: Valida stock, calcula totales y registra en BD
      */
-    public function createSale($cartItems, $payment_method, $current_exchange_rate, $customer_id = null, $due_date = null) {
+    public function createSale($cartItems, $payment_method, $current_exchange_rate, $customer_id = null, $due_date = null)
+    {
         try {
             $this->conn->beginTransaction();
 
             $total_usd = 0;
-            
+
             foreach ($cartItems as $item) {
                 $sqlProd = "SELECT price_base_usd, profit_margin, stock 
                             FROM products 
                             WHERE id = :id AND tenant_id = :tenant_id 
-                            FOR UPDATE"; 
-                
+                            FOR UPDATE";
+
                 $stmt = $this->conn->prepare($sqlProd);
                 $stmt->execute([':id' => $item['id'], ':tenant_id' => $this->tenant_id]);
                 $product = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -41,7 +44,7 @@ class Sale {
             }
 
             // Redondeamos el total USD a 2 decimales
-            $total_usd = round($total_usd, 2); 
+            $total_usd = round($total_usd, 2);
 
             // Calculamos el total en Bs y lo redondeamos también a 2 decimales
             $total_bs = round($total_usd * $current_exchange_rate, 2);
@@ -49,7 +52,7 @@ class Sale {
             $sqlHead = "INSERT INTO sales 
                         (tenant_id, user_id, total_amount_usd, total_amount_bs, exchange_rate, payment_method, created_at) 
                         VALUES (:tid, :uid, :tusd, :tbs, :rate, :method, NOW())";
-            
+
             $stmtHead = $this->conn->prepare($sqlHead);
             $stmtHead->execute([
                 ':tid' => $this->tenant_id,
@@ -59,7 +62,7 @@ class Sale {
                 ':rate' => $current_exchange_rate,
                 ':method' => $payment_method
             ]);
-            
+
             $sale_id = $this->conn->lastInsertId();
 
             $sqlDetail = "INSERT INTO sale_items (sale_id, product_id, quantity, price_at_moment_usd) VALUES (?, ?, ?, ?)";
@@ -83,7 +86,7 @@ class Sale {
                 if (!$customer_id) {
                     throw new Exception("Debe seleccionar un cliente para las ventas a crédito.");
                 }
-                
+
                 $sqlCredit = "INSERT INTO credits (tenant_id, sale_id, customer_id, total_amount_usd, balance_usd, due_date) 
                               VALUES (?, ?, ?, ?, ?, ?)";
                 $stmtCredit = $this->conn->prepare($sqlCredit);
@@ -95,12 +98,11 @@ class Sale {
             $this->conn->commit();
 
             return [
-                "status" => "success", 
-                "message" => "Venta registrada exitosamente", 
+                "status" => "success",
+                "message" => "Venta registrada exitosamente",
                 "sale_id" => $sale_id,
                 "total_usd" => $total_usd
             ];
-
         } catch (Exception $e) {
             if ($this->conn->inTransaction()) {
                 $this->conn->rollBack();
@@ -111,10 +113,16 @@ class Sale {
 
     // --- MÉTODOS DE LECTURA (REPORTES) ---
 
-    public function getHistory($filter = 'today') {
-        $sql = "SELECT s.*, u.username 
+    public function getHistory($filter = 'today')
+    {
+        // Añadimos subconsultas y JOINs para traer la cantidad de ítems y el cliente (si es a crédito)
+        $sql = "SELECT s.*, u.username,
+                       (SELECT SUM(quantity) FROM sale_items WHERE sale_id = s.id) as total_items,
+                       c.name as customer_name
                 FROM sales s
                 LEFT JOIN users u ON s.user_id = u.id
+                LEFT JOIN credits cr ON s.id = cr.sale_id
+                LEFT JOIN customers c ON cr.customer_id = c.id
                 WHERE s.tenant_id = :tid";
 
         if ($filter == 'today') {
@@ -134,7 +142,8 @@ class Sale {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-public function getSaleHeader($sale_id) {
+    public function getSaleHeader($sale_id)
+    {
         $sql = "SELECT s.*, t.business_name, t.rif,t.ticket_footer, u.username, 
                        c.name as customer_name, c.document as customer_doc 
                 FROM sales s
@@ -142,26 +151,28 @@ public function getSaleHeader($sale_id) {
                 LEFT JOIN users u ON s.user_id = u.id
                 LEFT JOIN credits cr ON s.id = cr.sale_id
                 LEFT JOIN customers c ON cr.customer_id = c.id
-                WHERE s.id = :id AND s.tenant_id = :tid"; 
-        
+                WHERE s.id = :id AND s.tenant_id = :tid";
+
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([':id' => $sale_id, ':tid' => $this->tenant_id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function getSaleItems($sale_id) {
+    public function getSaleItems($sale_id)
+    {
         $sql = "SELECT si.*, p.name as product_name 
                 FROM sale_items si
                 JOIN sales s ON si.sale_id = s.id
                 LEFT JOIN products p ON si.product_id = p.id
                 WHERE si.sale_id = :id AND s.tenant_id = :tid";
-        
+
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([':id' => $sale_id, ':tid' => $this->tenant_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getCashFlowStats($startDate, $endDate) {
+    public function getCashFlowStats($startDate, $endDate)
+    {
         $sql = "SELECT 
                     payment_method, 
                     SUM(total_amount_usd) as total_usd, 
@@ -171,7 +182,7 @@ public function getSaleHeader($sale_id) {
                 WHERE tenant_id = :tid 
                 AND created_at BETWEEN :start AND :end 
                 GROUP BY payment_method";
-        
+
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([
             ':tid' => $this->tenant_id,
@@ -181,14 +192,15 @@ public function getSaleHeader($sale_id) {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getSalesChartData($startDate, $endDate) {
+    public function getSalesChartData($startDate, $endDate)
+    {
         $sql = "SELECT DATE(created_at) as sale_date, SUM(total_amount_usd) as total 
                 FROM sales 
                 WHERE tenant_id = :tid 
                 AND created_at BETWEEN :start AND :end 
                 GROUP BY DATE(created_at) 
                 ORDER BY sale_date ASC";
-        
+
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([
             ':tid' => $this->tenant_id,
@@ -198,7 +210,8 @@ public function getSaleHeader($sale_id) {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function cancelSale($sale_id) {
+    public function cancelSale($sale_id)
+    {
         try {
             $this->conn->beginTransaction();
 
@@ -231,11 +244,9 @@ public function getSaleHeader($sale_id) {
 
             $this->conn->commit();
             return ["status" => "success", "message" => "Venta anulada y stock restaurado correctamente."];
-
         } catch (Exception $e) {
             if ($this->conn->inTransaction()) $this->conn->rollBack();
             return ["status" => "error", "message" => $e->getMessage()];
         }
     }
 }
-?>

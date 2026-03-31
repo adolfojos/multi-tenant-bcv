@@ -8,26 +8,27 @@ include 'layouts/sidebar.php';
 ?>
 <main class="app-main">
     <?= render_content_header($headerConfig) ?>
-     <div class="app-content">
+    <div class="app-content">
         <div class="container-fluid">
-            
-            <?php 
-            if(isset($_GET['msg'])): 
+
+            <?php
+            if (isset($_GET['msg'])):
                 $alerts = [
                     'created' => ['class' => 'success', 'icon' => 'check-circle', 'text' => 'Producto añadido correctamente.'],
                     'updated' => ['class' => 'info', 'icon' => 'edit', 'text' => 'Producto actualizado con éxito.'],
                     'deleted' => ['class' => 'warning', 'icon' => 'trash', 'text' => 'Producto eliminado del inventario.']
                 ];
                 $m = $alerts[$_GET['msg']] ?? null;
-                if($m):
+                if ($m):
             ?>
-                <div class="alert alert-<?= $m['class'] ?> alert-dismissible fade show shadow-sm" role="alert">
-                    <i class="fas fa-<?= $m['icon'] ?> me-2"></i> <?= $m['text'] ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            <?php endif; endif; ?>
+                    <div class="alert alert-<?= $m['class'] ?> alert-dismissible fade show shadow-sm" role="alert">
+                        <i class="fas fa-<?= $m['icon'] ?> me-2"></i> <?= $m['text'] ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+            <?php endif;
+            endif; ?>
 
-            <?php if(isset($_GET['error'])): ?>
+            <?php if (isset($_GET['error'])): ?>
                 <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
                     <i class="fas fa-exclamation-circle me-2"></i> <strong>Error:</strong> <?= htmlspecialchars($_GET['error']) ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -61,10 +62,10 @@ include 'layouts/sidebar.php';
                         </span>
                         <div class="info-box-content">
                             <span class="info-box-text text-uppercase small fw-bold text-secondary">Bajo Stock (< 5)</span>
-                            <span class="info-box-number <?= $lowStockCount > 0 ? 'text-danger' : 'text-info' ?> fs-4 mb-0"><?= $lowStockCount ?></span>
-                            <span class="progress-description <?= $lowStockCount > 0 ? 'text-danger opacity-75' : 'text-muted' ?> small">
-                                <?= $lowStockCount > 0 ? '¡Necesitas reponer!' : 'Stock saludable' ?>
-                            </span>
+                                    <span class="info-box-number <?= $lowStockCount > 0 ? 'text-danger' : 'text-info' ?> fs-4 mb-0"><?= $lowStockCount ?></span>
+                                    <span class="progress-description <?= $lowStockCount > 0 ? 'text-danger opacity-75' : 'text-muted' ?> small">
+                                        <?= $lowStockCount > 0 ? '¡Necesitas reponer!' : 'Stock saludable' ?>
+                                    </span>
                         </div>
                     </div>
                 </div>
@@ -87,8 +88,8 @@ include 'layouts/sidebar.php';
                             <thead class="table-light">
                                 <tr>
                                     <th class="ps-3">Producto</th>
-                                    <th>SKU</th> 
-                                    <th>Marca</th> 
+                                    <th>SKU</th>
+                                    <th>Marca</th>
                                     <th>Categoría</th>
                                     <th>Stock</th>
                                     <th>Costo ($)</th>
@@ -100,82 +101,86 @@ include 'layouts/sidebar.php';
                                 </tr>
                             </thead>
                             <tbody id="inventoryBody">
-                                <?php if(!empty($products)): ?>
-                                    <?php foreach($products as $p): 
+                                <?php if (!empty($products)): ?>
+                                    <?php foreach ($products as $p):
                                         $costo_usd = $p['price_base_usd'];
                                         $precio_usd = $costo_usd * (1 + ($p['profit_margin'] / 100));
                                         $ganancia_usd = $precio_usd - $costo_usd;
                                         $ganancia_bs = $ganancia_usd * $bcvRate;
                                         $p_json = htmlspecialchars(json_encode($p), ENT_QUOTES, 'UTF-8');
                                     ?>
-                                    <tr>
-                                        <td class="ps-3">
-                                            <div class="d-flex align-items-center">
-                                                <?php if(!empty($p['image'])): ?>
-                                                    <img src="uploads/<?= htmlspecialchars($p['image']) ?>" class="rounded object-fit-contain me-3 border" style="width: 45px; height: 45px;" alt="img">
-                                                <?php else: ?>
-                                                    <div class="bg-secondary bg-opacity-25 rounded d-flex align-items-center justify-content-center me-3 border" style="width: 45px; height: 45px;">
-                                                        <i class="fas fa-box text-secondary"></i>
-                                                    </div>
-                                                <?php endif; ?>
-                                                <div>
-                                                    <strong class="d-block"><?= htmlspecialchars($p['name']) ?></strong>
-                                                    <?php if(!empty($p['description'])): ?>
-                                                        <small class="text-muted text-truncate d-inline-block" style="max-width: 200px;"><?= htmlspecialchars($p['description']) ?></small>
+                                        <tr>
+                                            <td class="ps-3">
+                                                <div class="d-flex align-items-center">
+                                                    <?php if (!empty($p['image'])): ?>
+                                                        <img src="uploads/<?= htmlspecialchars($p['image']) ?>" class="rounded object-fit-contain me-3 border" style="width: 45px; height: 45px;" alt="img">
+                                                    <?php else: ?>
+                                                        <div class="bg-secondary bg-opacity-25 rounded d-flex align-items-center justify-content-center me-3 border" style="width: 45px; height: 45px;">
+                                                            <i class="fas fa-box text-secondary"></i>
+                                                        </div>
                                                     <?php endif; ?>
+                                                    <div>
+                                                        <strong class="d-block"><?= htmlspecialchars($p['name']) ?></strong>
+                                                        <?php if (!empty($p['description'])): ?>
+                                                            <small class="text-muted text-truncate d-inline-block" style="max-width: 200px;"><?= htmlspecialchars($p['description']) ?></small>
+                                                        <?php endif; ?>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        
-                                        <td class="small text-muted font-monospace"><?= !empty($p['sku']) ? htmlspecialchars($p['sku']) : '-' ?></td>
-                                        <td><span class="badge text-bg-light border"><?= !empty($p['brand']) ? htmlspecialchars($p['brand']) : 'N/A' ?></span></td>
+                                            </td>
 
-                                        <td>
-                                            <span class="badge text-bg-secondary bg-opacity-75">
-                                                <?= htmlspecialchars($p['category_name'] ?? 'General') ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span class="badge rounded-pill <?= $p['stock'] < 5 ? 'text-bg-danger' : 'text-bg-success' ?>">
-                                                <?= $p['stock'] ?> ud
-                                            </span>
-                                        </td>
-                                        
-                                        <td class="text-success fw-bold">$<?= number_format($costo_usd, 2) ?></td>
-                                        <td class="fw-bold">Bs. <?= number_format($costo_usd * $bcvRate, 2) ?></td>
-                                        <td class="text-success fw-bold">$<?= number_format($precio_usd, 2) ?></td>
-                                        <td class="fw-bold">Bs. <?= number_format($precio_usd * $bcvRate, 2) ?></td>
-                                        
-                                        <td class="text-nowrap">
-                                            <span style="color: #0d47a1;" class="fw-bold me-1">$<?= number_format($ganancia_usd, 2) ?></span>
-                                            <span class="badge rounded-pill px-2 py-1" style="background-color: #d1fae5; color: #0f766e; font-size: 0.85rem; font-weight: 600;">
-                                                <?= number_format($ganancia_bs, 2) ?> bs
-                                            </span>
-                                        </td>
+                                            <td class="small text-muted font-monospace"><?= !empty($p['sku']) ? htmlspecialchars($p['sku']) : '-' ?></td>
+                                            <td><span class="badge text-bg-light border"><?= !empty($p['brand']) ? htmlspecialchars($p['brand']) : 'N/A' ?></span></td>
 
-                                        <td class="text-end pe-3">
-                                            <div class="btn-group">                                        
-                                                <button class="btn btn-sm btn-outline-info me-1" onclick='viewProduct(<?= $p_json ?>)' title="Ver Detalles">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-warning me-1" onclick='editProduct(<?= $p_json ?>)' title="Editar">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger me-1" onclick='confirmDelete(<?= $p["id"] ?>, "<?= addslashes($p["name"]) ?>")' title="Eliminar">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            <td>
+                                                <span class="badge text-bg-secondary bg-opacity-75">
+                                                    <?= htmlspecialchars($p['category_name'] ?? 'General') ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge rounded-pill <?= $p['stock'] < 5 ? 'text-bg-danger' : 'text-bg-success' ?>">
+                                                    <?= $p['stock'] ?> ud
+                                                </span>
+                                            </td>
+
+                                            <td class="text-success fw-bold">$<?= number_format($costo_usd, 2) ?></td>
+                                            <td class="fw-bold">Bs. <?= number_format($costo_usd * $bcvRate, 2) ?></td>
+                                            <td class="text-success fw-bold">$<?= number_format($precio_usd, 2) ?></td>
+                                            <td class="fw-bold">Bs. <?= number_format($precio_usd * $bcvRate, 2) ?></td>
+
+                                            <td class="text-nowrap">
+                                                <span style="color: #0d47a1;" class="fw-bold me-1">$<?= number_format($ganancia_usd, 2) ?></span>
+                                                <span class="badge rounded-pill px-2 py-1" style="background-color: #d1fae5; color: #0f766e; font-size: 0.85rem; font-weight: 600;">
+                                                    <?= number_format($ganancia_bs, 2) ?> bs
+                                                </span>
+                                            </td>
+
+                                            <td class="text-end pe-3">
+                                                <div class="btn-group">
+                                                    <button class="btn btn-sm btn-outline-info me-1" onclick='viewProduct(<?= $p_json ?>)' title="Ver Detalles">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-warning me-1" onclick='editProduct(<?= $p_json ?>)' title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger me-1" onclick='confirmDelete(<?= $p["id"] ?>, "<?= addslashes($p["name"]) ?>")' title="Eliminar">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
-                </div> </div> </div> </div> </main>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
 
 <?php
-include 'layouts/footer.php'; 
+include 'layouts/footer.php';
 include 'layouts/modals/modals_admin.php';
 ?>
 
@@ -185,4 +190,5 @@ include 'layouts/modals/modals_admin.php';
 
 <script src="js/admin.js"></script>
 </body>
+
 </html>

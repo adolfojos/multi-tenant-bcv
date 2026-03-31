@@ -33,7 +33,7 @@
             const originalText = btnDelete.innerHTML;
             
             btnDelete.disabled = true;
-            btnDelete.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Eliminando...';
+            btnDelete.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" ></span> Eliminando...';
 
             const fd = new FormData();
             fd.append('action', 'delete');
@@ -62,7 +62,7 @@
             const originalText = btnSubmit.innerHTML;
             
             btnSubmit.disabled = true;
-            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" ></span> Guardando...';
 
             fetch('actions/actions_category.php', {
                 method: 'POST',

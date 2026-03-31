@@ -49,7 +49,7 @@ $('#inputSearchCustomer').on('keyup', function() {
 
     searchTimer = setTimeout(function() {
         $.ajax({
-            url: 'actions_customer.php',
+            url: 'actions/actions_customer.php',
             type: 'POST',
             data: { action: 'search', term: term },
             dataType: 'json',
@@ -318,19 +318,33 @@ function executeSale() {
             try {
                 let res = (typeof response === 'object') ? response : JSON.parse(response);
 
-                if (res.status === 'success') {
-                    document.getElementById('checkoutSuccess').style.display = 'block';
-                    document.getElementById('ticketId').innerText = res.sale_id || '####';
-                    cart = []; 
-                    renderCart(); 
-                    
-                    // Limpiar campos de crédito por si acaso
-                    $('#selectedCustomerId').val('');
-                    $('#selectedCustomerDisplay').val('');
-                    $('#creditDueDate').val('');
-                    
+                if (res.status === "success") {
+                  document.getElementById("checkoutSuccess").style.display =
+                    "block";
+                  document.getElementById("ticketId").innerText =
+                    res.sale_id || "####";
+
+                  // --- NUEVO: Asignar la acción de abrir el ticket al botón ---
+                  const btnImprimir =
+                    document.getElementById("btnImprimirTicket");
+                  if (btnImprimir && res.sale_id) {
+                    btnImprimir.onclick = function () {
+                      window.open(`ticket.php?id=${res.sale_id}`, "_blank");
+                    };
+                  }
+                  // -----------------------------------------------------------
+
+                  cart = [];
+                  renderCart();
+
+                  // Limpiar campos de crédito por si acaso
+                  $("#selectedCustomerId").val("");
+                  $("#selectedCustomerDisplay").val("");
+                  $("#creditDueDate").val("");
                 } else {
-                    throw new Error(res.message || 'Error desconocido del servidor.');
+                  throw new Error(
+                    res.message || "Error desconocido del servidor.",
+                  );
                 }
             } catch (e) {
                 document.getElementById('checkoutError').style.display = 'block';

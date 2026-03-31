@@ -43,7 +43,7 @@ require_once '../controllers/AuthController.php';
         <form  method="post">
           <div class="input-group mb-3">
             <div class="form-floating">
-              <input id="username" name="username" type="text" class="form-control" placeholder="Usuario" required />
+              <input id="username" name="username" type="text" class="form-control" placeholder="Usuario" autocomplete="username" required />
               <label for="username">Usuario</label>
             </div>
             <div class="input-group-text">
@@ -53,7 +53,7 @@ require_once '../controllers/AuthController.php';
 
           <div class="input-group mb-3">
             <div class="form-floating">
-              <input id="loginPassword" name="password" type="password" class="form-control" placeholder="Password" required />
+              <input id="loginPassword" name="password" type="password" class="form-control" placeholder="Password" autocomplete="current-password" required>
               <label for="loginPassword">Contraseña</label>
             </div>
             <div class="input-group-text">

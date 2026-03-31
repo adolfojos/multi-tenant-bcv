@@ -1014,7 +1014,8 @@ class Auth {
     }
     
 }
-?> ```
+?> 
+ ```
 
 ## Archivo: ./includes/Category.php
  ```php
@@ -1538,12 +1539,14 @@ class Report {
 ## Archivo: ./includes/Sale.php
  ```php
 <?php
-class Sale {
+class Sale
+{
     private $conn;
     private $tenant_id;
     private $user_id;
 
-    public function __construct($db, $tenant_id, $user_id) {
+    public function __construct($db, $tenant_id, $user_id)
+    {
         $this->conn = $db;
         $this->tenant_id = $tenant_id;
         $this->user_id = $user_id;
@@ -1552,18 +1555,19 @@ class Sale {
     /**
      * Procesa la venta: Valida stock, calcula totales y registra en BD
      */
-    public function createSale($cartItems, $payment_method, $current_exchange_rate, $customer_id = null, $due_date = null) {
+    public function createSale($cartItems, $payment_method, $current_exchange_rate, $customer_id = null, $due_date = null)
+    {
         try {
             $this->conn->beginTransaction();
 
             $total_usd = 0;
-            
+
             foreach ($cartItems as $item) {
                 $sqlProd = "SELECT price_base_usd, profit_margin, stock 
                             FROM products 
                             WHERE id = :id AND tenant_id = :tenant_id 
-                            FOR UPDATE"; 
-                
+                            FOR UPDATE";
+
                 $stmt = $this->conn->prepare($sqlProd);
                 $stmt->execute([':id' => $item['id'], ':tenant_id' => $this->tenant_id]);
                 $product = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1580,7 +1584,7 @@ class Sale {
             }
 
             // Redondeamos el total USD a 2 decimales
-            $total_usd = round($total_usd, 2); 
+            $total_usd = round($total_usd, 2);
 
             // Calculamos el total en Bs y lo redondeamos también a 2 decimales
             $total_bs = round($total_usd * $current_exchange_rate, 2);
@@ -1588,7 +1592,7 @@ class Sale {
             $sqlHead = "INSERT INTO sales 
                         (tenant_id, user_id, total_amount_usd, total_amount_bs, exchange_rate, payment_method, created_at) 
                         VALUES (:tid, :uid, :tusd, :tbs, :rate, :method, NOW())";
-            
+
             $stmtHead = $this->conn->prepare($sqlHead);
             $stmtHead->execute([
                 ':tid' => $this->tenant_id,
@@ -1598,7 +1602,7 @@ class Sale {
                 ':rate' => $current_exchange_rate,
                 ':method' => $payment_method
             ]);
-            
+
             $sale_id = $this->conn->lastInsertId();
 
             $sqlDetail = "INSERT INTO sale_items (sale_id, product_id, quantity, price_at_moment_usd) VALUES (?, ?, ?, ?)";
@@ -1622,7 +1626,7 @@ class Sale {
                 if (!$customer_id) {
                     throw new Exception("Debe seleccionar un cliente para las ventas a crédito.");
                 }
-                
+
                 $sqlCredit = "INSERT INTO credits (tenant_id, sale_id, customer_id, total_amount_usd, balance_usd, due_date) 
                               VALUES (?, ?, ?, ?, ?, ?)";
                 $stmtCredit = $this->conn->prepare($sqlCredit);
@@ -1634,12 +1638,11 @@ class Sale {
             $this->conn->commit();
 
             return [
-                "status" => "success", 
-                "message" => "Venta registrada exitosamente", 
+                "status" => "success",
+                "message" => "Venta registrada exitosamente",
                 "sale_id" => $sale_id,
                 "total_usd" => $total_usd
             ];
-
         } catch (Exception $e) {
             if ($this->conn->inTransaction()) {
                 $this->conn->rollBack();
@@ -1650,10 +1653,16 @@ class Sale {
 
     // --- MÉTODOS DE LECTURA (REPORTES) ---
 
-    public function getHistory($filter = 'today') {
-        $sql = "SELECT s.*, u.username 
+    public function getHistory($filter = 'today')
+    {
+        // Añadimos subconsultas y JOINs para traer la cantidad de ítems y el cliente (si es a crédito)
+        $sql = "SELECT s.*, u.username,
+                       (SELECT SUM(quantity) FROM sale_items WHERE sale_id = s.id) as total_items,
+                       c.name as customer_name
                 FROM sales s
                 LEFT JOIN users u ON s.user_id = u.id
+                LEFT JOIN credits cr ON s.id = cr.sale_id
+                LEFT JOIN customers c ON cr.customer_id = c.id
                 WHERE s.tenant_id = :tid";
 
         if ($filter == 'today') {
@@ -1673,7 +1682,8 @@ class Sale {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-public function getSaleHeader($sale_id) {
+    public function getSaleHeader($sale_id)
+    {
         $sql = "SELECT s.*, t.business_name, t.rif,t.ticket_footer, u.username, 
                        c.name as customer_name, c.document as customer_doc 
                 FROM sales s
@@ -1681,26 +1691,28 @@ public function getSaleHeader($sale_id) {
                 LEFT JOIN users u ON s.user_id = u.id
                 LEFT JOIN credits cr ON s.id = cr.sale_id
                 LEFT JOIN customers c ON cr.customer_id = c.id
-                WHERE s.id = :id AND s.tenant_id = :tid"; 
-        
+                WHERE s.id = :id AND s.tenant_id = :tid";
+
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([':id' => $sale_id, ':tid' => $this->tenant_id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function getSaleItems($sale_id) {
+    public function getSaleItems($sale_id)
+    {
         $sql = "SELECT si.*, p.name as product_name 
                 FROM sale_items si
                 JOIN sales s ON si.sale_id = s.id
                 LEFT JOIN products p ON si.product_id = p.id
                 WHERE si.sale_id = :id AND s.tenant_id = :tid";
-        
+
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([':id' => $sale_id, ':tid' => $this->tenant_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getCashFlowStats($startDate, $endDate) {
+    public function getCashFlowStats($startDate, $endDate)
+    {
         $sql = "SELECT 
                     payment_method, 
                     SUM(total_amount_usd) as total_usd, 
@@ -1710,7 +1722,7 @@ public function getSaleHeader($sale_id) {
                 WHERE tenant_id = :tid 
                 AND created_at BETWEEN :start AND :end 
                 GROUP BY payment_method";
-        
+
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([
             ':tid' => $this->tenant_id,
@@ -1720,14 +1732,15 @@ public function getSaleHeader($sale_id) {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getSalesChartData($startDate, $endDate) {
+    public function getSalesChartData($startDate, $endDate)
+    {
         $sql = "SELECT DATE(created_at) as sale_date, SUM(total_amount_usd) as total 
                 FROM sales 
                 WHERE tenant_id = :tid 
                 AND created_at BETWEEN :start AND :end 
                 GROUP BY DATE(created_at) 
                 ORDER BY sale_date ASC";
-        
+
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([
             ':tid' => $this->tenant_id,
@@ -1737,7 +1750,8 @@ public function getSaleHeader($sale_id) {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function cancelSale($sale_id) {
+    public function cancelSale($sale_id)
+    {
         try {
             $this->conn->beginTransaction();
 
@@ -1770,14 +1784,13 @@ public function getSaleHeader($sale_id) {
 
             $this->conn->commit();
             return ["status" => "success", "message" => "Venta anulada y stock restaurado correctamente."];
-
         } catch (Exception $e) {
             if ($this->conn->inTransaction()) $this->conn->rollBack();
             return ["status" => "error", "message" => $e->getMessage()];
         }
     }
 }
-?> ```
+ ```
 
 ## Archivo: ./includes/User.php
  ```php
@@ -2813,17 +2826,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['critical_action'])) {
         }
 
         // Redirigir de vuelta a configuración con un mensaje de éxito
-        header("Location: configuration.php?success=" . urlencode($msg));
+        header("Location: ../configuration.php?success=" . urlencode($msg));
         exit;
 
     } catch (Exception $e) {
         // Redirigir de vuelta con el mensaje de error
-        header("Location: configuration.php?error=" . urlencode($e->getMessage()));
+        header("Location: ../configuration.php?error=" . urlencode($e->getMessage()));
         exit;
     }
 } else {
     // Si entran directamente a la URL sin POST, los devolvemos
-    header("Location: configuration.php");
+    header("Location: ../configuration.php");
     exit;
 } ```
 
@@ -3171,26 +3184,27 @@ include 'layouts/sidebar.php';
 ?>
 <main class="app-main">
     <?= render_content_header($headerConfig) ?>
-     <div class="app-content">
+    <div class="app-content">
         <div class="container-fluid">
-            
-            <?php 
-            if(isset($_GET['msg'])): 
+
+            <?php
+            if (isset($_GET['msg'])):
                 $alerts = [
                     'created' => ['class' => 'success', 'icon' => 'check-circle', 'text' => 'Producto añadido correctamente.'],
                     'updated' => ['class' => 'info', 'icon' => 'edit', 'text' => 'Producto actualizado con éxito.'],
                     'deleted' => ['class' => 'warning', 'icon' => 'trash', 'text' => 'Producto eliminado del inventario.']
                 ];
                 $m = $alerts[$_GET['msg']] ?? null;
-                if($m):
+                if ($m):
             ?>
-                <div class="alert alert-<?= $m['class'] ?> alert-dismissible fade show shadow-sm" role="alert">
-                    <i class="fas fa-<?= $m['icon'] ?> me-2"></i> <?= $m['text'] ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            <?php endif; endif; ?>
+                    <div class="alert alert-<?= $m['class'] ?> alert-dismissible fade show shadow-sm" role="alert">
+                        <i class="fas fa-<?= $m['icon'] ?> me-2"></i> <?= $m['text'] ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+            <?php endif;
+            endif; ?>
 
-            <?php if(isset($_GET['error'])): ?>
+            <?php if (isset($_GET['error'])): ?>
                 <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
                     <i class="fas fa-exclamation-circle me-2"></i> <strong>Error:</strong> <?= htmlspecialchars($_GET['error']) ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -3224,10 +3238,10 @@ include 'layouts/sidebar.php';
                         </span>
                         <div class="info-box-content">
                             <span class="info-box-text text-uppercase small fw-bold text-secondary">Bajo Stock (< 5)</span>
-                            <span class="info-box-number <?= $lowStockCount > 0 ? 'text-danger' : 'text-info' ?> fs-4 mb-0"><?= $lowStockCount ?></span>
-                            <span class="progress-description <?= $lowStockCount > 0 ? 'text-danger opacity-75' : 'text-muted' ?> small">
-                                <?= $lowStockCount > 0 ? '¡Necesitas reponer!' : 'Stock saludable' ?>
-                            </span>
+                                    <span class="info-box-number <?= $lowStockCount > 0 ? 'text-danger' : 'text-info' ?> fs-4 mb-0"><?= $lowStockCount ?></span>
+                                    <span class="progress-description <?= $lowStockCount > 0 ? 'text-danger opacity-75' : 'text-muted' ?> small">
+                                        <?= $lowStockCount > 0 ? '¡Necesitas reponer!' : 'Stock saludable' ?>
+                                    </span>
                         </div>
                     </div>
                 </div>
@@ -3250,8 +3264,8 @@ include 'layouts/sidebar.php';
                             <thead class="table-light">
                                 <tr>
                                     <th class="ps-3">Producto</th>
-                                    <th>SKU</th> 
-                                    <th>Marca</th> 
+                                    <th>SKU</th>
+                                    <th>Marca</th>
                                     <th>Categoría</th>
                                     <th>Stock</th>
                                     <th>Costo ($)</th>
@@ -3263,82 +3277,86 @@ include 'layouts/sidebar.php';
                                 </tr>
                             </thead>
                             <tbody id="inventoryBody">
-                                <?php if(!empty($products)): ?>
-                                    <?php foreach($products as $p): 
+                                <?php if (!empty($products)): ?>
+                                    <?php foreach ($products as $p):
                                         $costo_usd = $p['price_base_usd'];
                                         $precio_usd = $costo_usd * (1 + ($p['profit_margin'] / 100));
                                         $ganancia_usd = $precio_usd - $costo_usd;
                                         $ganancia_bs = $ganancia_usd * $bcvRate;
                                         $p_json = htmlspecialchars(json_encode($p), ENT_QUOTES, 'UTF-8');
                                     ?>
-                                    <tr>
-                                        <td class="ps-3">
-                                            <div class="d-flex align-items-center">
-                                                <?php if(!empty($p['image'])): ?>
-                                                    <img src="uploads/<?= htmlspecialchars($p['image']) ?>" class="rounded object-fit-contain me-3 border" style="width: 45px; height: 45px;" alt="img">
-                                                <?php else: ?>
-                                                    <div class="bg-secondary bg-opacity-25 rounded d-flex align-items-center justify-content-center me-3 border" style="width: 45px; height: 45px;">
-                                                        <i class="fas fa-box text-secondary"></i>
-                                                    </div>
-                                                <?php endif; ?>
-                                                <div>
-                                                    <strong class="d-block"><?= htmlspecialchars($p['name']) ?></strong>
-                                                    <?php if(!empty($p['description'])): ?>
-                                                        <small class="text-muted text-truncate d-inline-block" style="max-width: 200px;"><?= htmlspecialchars($p['description']) ?></small>
+                                        <tr>
+                                            <td class="ps-3">
+                                                <div class="d-flex align-items-center">
+                                                    <?php if (!empty($p['image'])): ?>
+                                                        <img src="uploads/<?= htmlspecialchars($p['image']) ?>" class="rounded object-fit-contain me-3 border" style="width: 45px; height: 45px;" alt="img">
+                                                    <?php else: ?>
+                                                        <div class="bg-secondary bg-opacity-25 rounded d-flex align-items-center justify-content-center me-3 border" style="width: 45px; height: 45px;">
+                                                            <i class="fas fa-box text-secondary"></i>
+                                                        </div>
                                                     <?php endif; ?>
+                                                    <div>
+                                                        <strong class="d-block"><?= htmlspecialchars($p['name']) ?></strong>
+                                                        <?php if (!empty($p['description'])): ?>
+                                                            <small class="text-muted text-truncate d-inline-block" style="max-width: 200px;"><?= htmlspecialchars($p['description']) ?></small>
+                                                        <?php endif; ?>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        
-                                        <td class="small text-muted font-monospace"><?= !empty($p['sku']) ? htmlspecialchars($p['sku']) : '-' ?></td>
-                                        <td><span class="badge text-bg-light border"><?= !empty($p['brand']) ? htmlspecialchars($p['brand']) : 'N/A' ?></span></td>
+                                            </td>
 
-                                        <td>
-                                            <span class="badge text-bg-secondary bg-opacity-75">
-                                                <?= htmlspecialchars($p['category_name'] ?? 'General') ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span class="badge rounded-pill <?= $p['stock'] < 5 ? 'text-bg-danger' : 'text-bg-success' ?>">
-                                                <?= $p['stock'] ?> ud
-                                            </span>
-                                        </td>
-                                        
-                                        <td class="text-success fw-bold">$<?= number_format($costo_usd, 2) ?></td>
-                                        <td class="fw-bold">Bs. <?= number_format($costo_usd * $bcvRate, 2) ?></td>
-                                        <td class="text-success fw-bold">$<?= number_format($precio_usd, 2) ?></td>
-                                        <td class="fw-bold">Bs. <?= number_format($precio_usd * $bcvRate, 2) ?></td>
-                                        
-                                        <td class="text-nowrap">
-                                            <span style="color: #0d47a1;" class="fw-bold me-1">$<?= number_format($ganancia_usd, 2) ?></span>
-                                            <span class="badge rounded-pill px-2 py-1" style="background-color: #d1fae5; color: #0f766e; font-size: 0.85rem; font-weight: 600;">
-                                                <?= number_format($ganancia_bs, 2) ?> bs
-                                            </span>
-                                        </td>
+                                            <td class="small text-muted font-monospace"><?= !empty($p['sku']) ? htmlspecialchars($p['sku']) : '-' ?></td>
+                                            <td><span class="badge text-bg-light border"><?= !empty($p['brand']) ? htmlspecialchars($p['brand']) : 'N/A' ?></span></td>
 
-                                        <td class="text-end pe-3">
-                                            <div class="btn-group">                                        
-                                                <button class="btn btn-sm btn-outline-info me-1" onclick='viewProduct(<?= $p_json ?>)' title="Ver Detalles">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-warning me-1" onclick='editProduct(<?= $p_json ?>)' title="Editar">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger me-1" onclick='confirmDelete(<?= $p["id"] ?>, "<?= addslashes($p["name"]) ?>")' title="Eliminar">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            <td>
+                                                <span class="badge text-bg-secondary bg-opacity-75">
+                                                    <?= htmlspecialchars($p['category_name'] ?? 'General') ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge rounded-pill <?= $p['stock'] < 5 ? 'text-bg-danger' : 'text-bg-success' ?>">
+                                                    <?= $p['stock'] ?> ud
+                                                </span>
+                                            </td>
+
+                                            <td class="text-success fw-bold">$<?= number_format($costo_usd, 2) ?></td>
+                                            <td class="fw-bold">Bs. <?= number_format($costo_usd * $bcvRate, 2) ?></td>
+                                            <td class="text-success fw-bold">$<?= number_format($precio_usd, 2) ?></td>
+                                            <td class="fw-bold">Bs. <?= number_format($precio_usd * $bcvRate, 2) ?></td>
+
+                                            <td class="text-nowrap">
+                                                <span style="color: #0d47a1;" class="fw-bold me-1">$<?= number_format($ganancia_usd, 2) ?></span>
+                                                <span class="badge rounded-pill px-2 py-1" style="background-color: #d1fae5; color: #0f766e; font-size: 0.85rem; font-weight: 600;">
+                                                    <?= number_format($ganancia_bs, 2) ?> bs
+                                                </span>
+                                            </td>
+
+                                            <td class="text-end pe-3">
+                                                <div class="btn-group">
+                                                    <button class="btn btn-sm btn-outline-info me-1" onclick='viewProduct(<?= $p_json ?>)' title="Ver Detalles">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-warning me-1" onclick='editProduct(<?= $p_json ?>)' title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger me-1" onclick='confirmDelete(<?= $p["id"] ?>, "<?= addslashes($p["name"]) ?>")' title="Eliminar">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
-                </div> </div> </div> </div> </main>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
 
 <?php
-include 'layouts/footer.php'; 
+include 'layouts/footer.php';
 include 'layouts/modals/modals_admin.php';
 ?>
 
@@ -3348,6 +3366,7 @@ include 'layouts/modals/modals_admin.php';
 
 <script src="js/admin.js"></script>
 </body>
+
 </html> ```
 
 ## Archivo: ./public/categories.php
@@ -3438,114 +3457,115 @@ include 'layouts/modals/modals_category.php';
 require_once '../controllers/ConfigController.php';
 include 'layouts/head.php';
 include 'layouts/navbar.php';
-include 'layouts/sidebar.php'; 
+include 'layouts/sidebar.php';
 ?>
-    <main class="app-main">
-        <?= render_content_header($headerConfig) ?>
-        <div class="app-content">
-            <div class="container-fluid">
-                <form id="formConfig" action="actions/actions_config.php" method="POST">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="card card-outline card-primary mb-4 shadow-sm">
-                                <div class="card-header">
-                                    <h3 class="card-title fw-bold">Perfil del Negocio</h3>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <label class="form-label small fw-bold">Nombre de la Empresa</label>
-                                            <input type="text" name="business_name" class="form-control" value="<?= htmlspecialchars($tenant_data['business_name'] ?? '') ?>" required>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label small fw-bold">RIF / Identificación Fiscal</label>
-                                            <input type="text" name="rif" class="form-control" placeholder="J-12345678-0" value="<?= htmlspecialchars($tenant_data['rif'] ?? '') ?>">
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-label small fw-bold">Dirección Comercial</label>
-                                            <textarea name="address" class="form-control" rows="2"><?= htmlspecialchars($tenant_data['address'] ?? '') ?></textarea>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label small fw-bold">Teléfono de Contacto</label>
-                                            <div class="input-group">
-                                                <span class="input-group-text"><i class="fas fa-phone"></i></span>
-                                                <input type="text" name="phone" class="form-control" placeholder="+58..." value="<?= htmlspecialchars($tenant_data['phone'] ?? '') ?>">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label small fw-bold">Moneda Principal</label>
-                                            <select class="form-select" name="currency">
-                                                <option value="USD" <?= ($tenant_data['currency'] == 'USD') ? 'selected' : '' ?>>Dólares (USD)</option>
-                                                <option value="VES" <?= ($tenant_data['currency'] == 'VES') ? 'selected' : '' ?>>Bolívares (VES)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
+<main class="app-main">
+    <?= render_content_header($headerConfig) ?>
+    <div class="app-content">
+        <div class="container-fluid">
+            <form id="formConfig" action="actions/actions_config.php" method="POST">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card card-outline card-primary mb-4 shadow-sm">
+                            <div class="card-header">
+                                <h3 class="card-title fw-bold">Perfil del Negocio</h3>
                             </div>
-
-                            <div class="card card-outline card-info mb-4 shadow-sm">
-                                <div class="card-header">
-                                    <h3 class="card-title fw-bold">Personalización de Tickets</h3>
-                                </div>
-                                <div class="card-body">
-                                    <div class="mb-3">
-                                        <label class="form-label small fw-bold">Mensaje al pie del ticket</label>
-                                        <textarea name="ticket_footer" class="form-control"><?= htmlspecialchars($tenant_data['ticket_footer'] ?? '') ?></textarea>
-                                        <div class="form-text">Este texto aparecerá al final de cada recibo impreso.</div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Nombre de la Empresa</label>
+                                        <input type="text" name="business_name" class="form-control" value="<?= htmlspecialchars($tenant_data['business_name'] ?? '') ?>" required>
                                     </div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="showLogo" name="show_logo" <?= !empty($tenant_data['show_logo']) ? 'checked' : '' ?>>
-                                        <label class="form-check-label" for="showLogo">Mostrar logo en el encabezado</label>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">RIF / Identificación Fiscal</label>
+                                        <input type="text" name="rif" class="form-control" placeholder="J-12345678-0" value="<?= htmlspecialchars($tenant_data['rif'] ?? '') ?>">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label small fw-bold">Dirección Comercial</label>
+                                        <textarea name="address" class="form-control" rows="2"><?= htmlspecialchars($tenant_data['address'] ?? '') ?></textarea>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Teléfono de Contacto</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                                            <input type="text" name="phone" class="form-control" placeholder="+58..." value="<?= htmlspecialchars($tenant_data['phone'] ?? '') ?>">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Moneda Principal</label>
+                                        <select class="form-select" name="currency">
+                                            <option value="USD" <?= ($tenant_data['currency'] == 'USD') ? 'selected' : '' ?>>Dólares (USD)</option>
+                                            <option value="VES" <?= ($tenant_data['currency'] == 'VES') ? 'selected' : '' ?>>Bolívares (VES)</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="col-md-4">
-                            <div class="card mb-4 shadow-sm">
-                                <div class="card-header">
-                                    <h3 class="card-title fw-bold">Interfaz</h3>
-                                </div>
-                                <div class="card-body">
-                                    <div class="form-check form-switch mb-3">
-                                        <input class="form-check-input" type="checkbox" name="dark_mode" id="darkModeSwitch" <?= ($tenant_data['theme'] === 'dark') ? 'checked' : '' ?>>
-                                        <label class="form-check-label" for="darkModeSwitch">Modo Oscuro</label>
-                                    </div>
-                                    <div class="form-check form-switch mb-3">
-                                        <input class="form-check-input" type="checkbox" name="compact_tables" id="compactTables" <?= !empty($tenant_data['compact_tables']) ? 'checked' : '' ?>>
-                                        <label class="form-check-label" for="compactTables">Tablas compactas</label>
-                                    </div>
-                                </div>
+                        <div class="card card-outline card-info mb-4 shadow-sm">
+                            <div class="card-header">
+                                <h3 class="card-title fw-bold">Personalización de Tickets</h3>
                             </div>
-
-                            <div class="card card-danger card-outline shadow-sm">
-                                <div class="card-header">
-                                    <h3 class="card-title fw-bold text-danger">
-                                        <i class="fas fa-exclamation-triangle me-2"></i> Zona Crítica
-                                    </h3>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold">Mensaje al pie del ticket</label>
+                                    <textarea name="ticket_footer" class="form-control"><?= htmlspecialchars($tenant_data['ticket_footer'] ?? '') ?></textarea>
+                                    <div class="form-text">Este texto aparecerá al final de cada recibo impreso.</div>
                                 </div>
-                                <div class="card-body">
-                                    <p class="small text-secondary mb-3">Las siguientes acciones no se pueden deshacer. Por favor, proceda con precaución.</p>
-                                    
-
-                                    <button type="button" class="btn btn-outline-danger w-100 mb-2 btn-sm text-start" onclick="confirmAction('purgar las ventas del mes', 'purge_sales')">
-                                        <i class="fas fa-eraser me-2"></i> Purgar Ventas del Mes
-                                    </button>
-                                    
-                                    <button type="button" class="btn btn-outline-danger w-100 btn-sm text-start" onclick="confirmAction('reiniciar el correlativo de facturas', 'reset_correlative')">
-                                        <i class="fas fa-redo-alt me-2"></i> Reiniciar Correlativo
-                                    </button>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="showLogo" name="show_logo" <?= !empty($tenant_data['show_logo']) ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="showLogo">Mostrar logo en el encabezado</label>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </form>
-            </div>
+
+                    <div class="col-md-4">
+                        <div class="card mb-4 shadow-sm">
+                            <div class="card-header">
+                                <h3 class="card-title fw-bold">Interfaz</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" name="dark_mode" id="darkModeSwitch" <?= ($tenant_data['theme'] === 'dark') ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="darkModeSwitch">Modo Oscuro</label>
+                                </div>
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" name="compact_tables" id="compactTables" <?= !empty($tenant_data['compact_tables']) ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="compactTables">Tablas compactas</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card card-danger card-outline shadow-sm">
+                            <div class="card-header">
+                                <h3 class="card-title fw-bold text-danger">
+                                    <i class="fas fa-exclamation-triangle me-2"></i> Zona Crítica
+                                </h3>
+                            </div>
+                            <div class="card-body">
+                                <p class="small text-secondary mb-3">Las siguientes acciones no se pueden deshacer. Por favor, proceda con precaución.</p>
+
+
+                                <button type="button" class="btn btn-outline-danger w-100 mb-2 btn-sm text-start" onclick="confirmAction('purgar las ventas del mes', 'purge_sales')">
+                                    <i class="fas fa-eraser me-2"></i> Purgar Ventas del Mes
+                                </button>
+
+                                <button type="button" class="btn btn-outline-danger w-100 btn-sm text-start" onclick="confirmAction('reiniciar el correlativo de facturas', 'reset_correlative')">
+                                    <i class="fas fa-redo-alt me-2"></i> Reiniciar Correlativo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
         </div>
-    </main>
+    </div>
+</main>
 <?php include 'layouts/footer.php'; ?>
 <script src="js/config.js"></script>
 </body>
+
 </html> ```
 
 ## Archivo: ./public/credits.php
@@ -3642,165 +3662,17 @@ include 'layouts/sidebar.php';
     </div>
 </main>
 
-<div class="modal fade" id="modalPayment" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <form id="formPayment" class="modal-content shadow">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title"><i class="fas fa-money-bill-wave me-2"></i> Registrar Abono</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4">
-                <input type="hidden" name="action" value="add_payment">
-                <input type="hidden" name="credit_id" id="pay_credit_id">
-                
-                <div class="alert alert-info py-2">
-                    Cliente: <strong id="pay_customer_name"></strong><br>
-                    Deuda Actual: <strong class="text-danger" id="pay_balance_display"></strong>
-                </div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Monto a Abonar (USD) <span class="text-danger">*</span></label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light fw-bold">$</span>
-                        <input type="number" step="0.01" name="amount_usd" id="pay_amount" class="form-control form-control-lg" required>
-                    </div>
-                    <small class="text-muted" id="pay_bs_conversion">Equivale a: Bs 0.00</small>
-                </div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Método de Pago</label>
-                    <select name="payment_method" class="form-select" required>
-                        <option value="efectivo_bs">Efectivo Bolívares</option>
-                        <option value="efectivo_usd">Efectivo Divisa</option>
-                        <option value="pago_movil">Pago Móvil</option>
-                        <option value="punto">Punto de Venta</option>
-                        <option value="transferencia">Transferencia</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-success px-4" id="btnSubmitPayment">Confirmar Pago</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="modal fade" id="modalHistory" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content shadow">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title"><i class="fas fa-history me-2"></i> Historial de Pagos</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-0">
-                <table class="table table-striped mb-0 text-center">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Monto USD</th>
-                            <th>Monto BS</th>
-                            <th>Método</th>
-                            <th>Cajero</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyTableBody">
-                        </tbody>
-                </table>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<?php include 'layouts/footer.php'; ?>
+<?php include 'layouts/footer.php'; ?><?php include 'layouts/modals/modals_credits.php'; ?> 
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> <script>
-    const bcvRate = <?= $bcvRate ?>;
-
-    $(document).ready(function() {
-        $('#creditsTable').DataTable({
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
-            order: [[4, 'desc']]
-        });
-
-        // Calculadora en vivo en el modal
-        $('#pay_amount').on('input', function() {
-            let usd = parseFloat($(this).val()) || 0;
-            $('#pay_bs_conversion').text(`Equivale a: Bs ${(usd * bcvRate).toFixed(2)}`);
-        });
-
-        // Enviar pago por AJAX
-        $('#formPayment').on('submit', function(e) {
-            e.preventDefault();
-            $('#btnSubmitPayment').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
-
-            $.ajax({
-                url: 'actions/actions_credit.php',
-                type: 'POST',
-                data: $(this).serialize(),
-                dataType: 'json',
-                success: function(res) {
-                    if(res.status) {
-                        Swal.fire('¡Éxito!', res.message, 'success').then(() => location.reload());
-                    } else {
-                        Swal.fire('Error', res.message, 'error');
-                        $('#btnSubmitPayment').prop('disabled', false).text('Confirmar Pago');
-                    }
-                },
-                error: function() {
-                    Swal.fire('Error', 'No se pudo comunicar con el servidor.', 'error');
-                    $('#btnSubmitPayment').prop('disabled', false).text('Confirmar Pago');
-                }
-            });
-        });
-    });
-
-    function openPaymentModal(id, maxAmount, customer) {
-        $('#pay_credit_id').val(id);
-        $('#pay_customer_name').text(customer);
-        $('#pay_balance_display').text('$' + parseFloat(maxAmount).toFixed(2));
-        $('#pay_amount').attr('max', maxAmount).val('');
-        $('#pay_bs_conversion').text('Equivale a: Bs 0.00');
-        
-        let modal = new bootstrap.Modal(document.getElementById('modalPayment'));
-        modal.show();
-    }
-
-    function viewHistory(credit_id) {
-        $('#historyTableBody').html('<tr><td colspan="5"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
-        let modal = new bootstrap.Modal(document.getElementById('modalHistory'));
-        modal.show();
-
-        $.ajax({
-            url: 'actions/actions_credit.php',
-            type: 'POST',
-            data: { action: 'get_history', credit_id: credit_id },
-            dataType: 'json',
-            success: function(res) {
-                if(res.status && res.data.length > 0) {
-                    let html = '';
-                    res.data.forEach(p => {
-                        html += `<tr>
-                            <td>${new Date(p.created_at).toLocaleString('es-VE')}</td>
-                            <td class="text-success fw-bold">$${parseFloat(p.amount_usd).toFixed(2)}</td>
-                            <td>Bs ${parseFloat(p.amount_bs).toFixed(2)}</td>
-                            <td class="text-capitalize">${p.payment_method.replace('_', ' ')}</td>
-                            <td><span class="badge bg-secondary">${p.username || 'N/A'}</span></td>
-                        </tr>`;
-                    });
-                    $('#historyTableBody').html(html);
-                } else {
-                    $('#historyTableBody').html('<tr><td colspan="5" class="text-muted">No hay pagos registrados.</td></tr>');
-                }
-            }
-        });
-    }
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    window.APP_BCVRATE = <?= $bcvRate ?>;
 </script>
+<script src="js/credits.js"></script>
 </body>
 </html> ```
 
@@ -19645,7 +19517,7 @@ include 'layouts/sidebar.php';
     </div>
 </main>
 
-<div class="modal fade" id="modalCustomerForm" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalCustomerForm" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered">
         <form id="formCustomer" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
@@ -19691,110 +19563,106 @@ include 'layouts/sidebar.php';
 require_once '../controllers/DashboardController.php';
 include 'layouts/head.php';
 include 'layouts/navbar.php';
-include 'layouts/sidebar.php'; 
+include 'layouts/sidebar.php';
 ?>
-
-<!DOCTYPE html>
-<html lang="es" data-bs-theme="dark">
-<?php include 'layouts/head.php'; ?>
-
-        <main class="app-main">
-            <?= render_content_header($headerConfig) ?>
-            <div class="app-content">
-                <div class="container-fluid">
-                    <div class="row">
-                        <div class="col-lg-3 col-6">
-                            <div class="small-box text-bg-info shadow-sm">
-                                <div class="inner">
-                                    <h3>$<?= number_format($mySalesToday, 2) ?></h3>
-                                    <p class="mb-0">Mis Ventas Hoy (USD)</p>
-                                </div>
-                                <div class="small-box-icon"><i class="fas fa-dollar-sign"></i></div>
-                                <a href="sales_history.php?filter=today" class="small-box-footer link-light link-underline-opacity-0">
-                                    Ver historial <i class="fas fa-arrow-circle-right ms-1"></i>
-                                </a>
-                            </div>
+<main class="app-main">
+    <?= render_content_header($headerConfig) ?>
+    <div class="app-content">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-lg-3 col-6">
+                    <div class="small-box text-bg-info shadow-sm">
+                        <div class="inner">
+                            <h3>$<?= number_format($mySalesToday, 2) ?></h3>
+                            <p class="mb-0">Mis Ventas Hoy (USD)</p>
                         </div>
-                        
-                        <div class="col-lg-3 col-6">
-                            <div class="small-box text-bg-success shadow-sm">
-                                <div class="inner">
-                                    <h3><?= $myInvoices ?></h3>
-                                    <p class="mb-0">Mis Facturas Hoy</p>
-                                </div>
-                                <div class="small-box-icon"><i class="fas fa-file-invoice"></i></div>
-                                <a href="sales_history.php?filter=today" class="small-box-footer link-light link-underline-opacity-0">
-                                    Ver tickets <i class="fas fa-arrow-circle-right ms-1"></i>
-                                </a>
-                            </div>
-                        </div>
-                        
-                        <div class="col-lg-3 col-6">
-                            <div class="small-box text-bg-warning shadow-sm">
-                                <div class="inner text-white">
-                                    <h3 class="text-white">Bs <?= number_format($bcvRate, 2) ?></h3>
-                                    <p class="mb-0 text-white">Tasa BCV del Día</p>
-                                </div>
-                                <div class="small-box-icon"><i class="fas fa-coins text-white"></i></div>
-                                <a href="pos.php" class="small-box-footer text-white link-underline-opacity-0">
-                                    Ir a caja <i class="fas fa-arrow-circle-right ms-1"></i>
-                                </a>
-                            </div>
-                        </div>
-                        
-                        <div class="col-lg-3 col-6">
-                            <div class="small-box text-bg-danger shadow-sm">
-                                <div class="inner">
-                                    <h3>Bs <?= number_format($mySalesToday * $bcvRate, 2) ?></h3>
-                                    <p class="mb-0">Mis Ventas Hoy (Bs)</p>
-                                </div>
-                                <div class="small-box-icon"><i class="fas fa-wallet"></i></div>
-                                <a href="sales_history.php" class="small-box-footer link-light link-underline-opacity-0">
-                                    Cuadre de caja <i class="fas fa-arrow-circle-right ms-1"></i>
-                                </a>
-                            </div>
-                        </div>
+                        <div class="small-box-icon"><i class="fas fa-dollar-sign"></i></div>
+                        <a href="sales_history.php?filter=today" class="small-box-footer link-light link-underline-opacity-0">
+                            Ver historial <i class="fas fa-arrow-circle-right ms-1"></i>
+                        </a>
                     </div>
+                </div>
 
-                    <div class="row mt-3">
-                        <div class="col-lg-8">
-                            <div class="card card-outline card-primary shadow-sm mb-4">
-                                <div class="card-header border-0">
-                                    <h3 class="card-title fw-bold">Rendimiento de Ventas (USD)</h3>
-                                </div>
-                                <div class="card-body">
-                                    <div id="revenue-chart" style="min-height: 300px;"></div>
-                                </div>
-                            </div>
+                <div class="col-lg-3 col-6">
+                    <div class="small-box text-bg-success shadow-sm">
+                        <div class="inner">
+                            <h3><?= $myInvoices ?></h3>
+                            <p class="mb-0">Mis Facturas Hoy</p>
                         </div>
-                        
-                        <div class="col-lg-4">
-                            <div class="card card-outline card-info shadow-sm mb-4 h-100">
-                                <div class="card-header border-0">
-                                    <h3 class="card-title fw-bold">Accesos Rápidos</h3>
-                                </div>
-                                <div class="card-body d-flex flex-column gap-2">
-                                    <a href="pos.php" class="btn btn-outline-success btn-lg text-start fw-bold shadow-sm"><i class="fas fa-cash-register me-2"></i> Abrir Punto de Venta</a>
-                                    <a href="admin.php" class="btn btn-outline-primary text-start fw-bold"><i class="fas fa-box me-2"></i> Inventario</a>
-                                    <a href="sales.php" class="btn btn-outline-warning text-start fw-bold"><i class="fas fa-chart-line me-2"></i> Reportes</a>
-                                    <a href="users.php" class="btn btn-outline-info text-start fw-bold"><i class="fas fa-users me-2"></i> Usuarios</a>
-                                </div>
-                            </div>
-                        </div>
+                        <div class="small-box-icon"><i class="fas fa-file-invoice"></i></div>
+                        <a href="sales_history.php?filter=today" class="small-box-footer link-light link-underline-opacity-0">
+                            Ver tickets <i class="fas fa-arrow-circle-right ms-1"></i>
+                        </a>
                     </div>
+                </div>
 
+                <div class="col-lg-3 col-6">
+                    <div class="small-box text-bg-warning shadow-sm">
+                        <div class="inner text-white">
+                            <h3 class="text-white">Bs <?= number_format($bcvRate, 2) ?></h3>
+                            <p class="mb-0 text-white">Tasa BCV del Día</p>
+                        </div>
+                        <div class="small-box-icon"><i class="fas fa-coins text-white"></i></div>
+                        <a href="pos.php" class="small-box-footer text-white link-underline-opacity-0">
+                            Ir a caja <i class="fas fa-arrow-circle-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-6">
+                    <div class="small-box text-bg-danger shadow-sm">
+                        <div class="inner">
+                            <h3>Bs <?= number_format($mySalesToday * $bcvRate, 2) ?></h3>
+                            <p class="mb-0">Mis Ventas Hoy (Bs)</p>
+                        </div>
+                        <div class="small-box-icon"><i class="fas fa-wallet"></i></div>
+                        <a href="sales_history.php" class="small-box-footer link-light link-underline-opacity-0">
+                            Cuadre de caja <i class="fas fa-arrow-circle-right ms-1"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
-        </main>
+
+            <div class="row mt-3">
+                <div class="col-lg-8">
+                    <div class="card card-outline card-primary shadow-sm mb-4">
+                        <div class="card-header border-0">
+                            <h3 class="card-title fw-bold">Rendimiento de Ventas (USD)</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="revenue-chart" style="min-height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card card-outline card-info shadow-sm mb-4 h-100">
+                        <div class="card-header border-0">
+                            <h3 class="card-title fw-bold">Accesos Rápidos</h3>
+                        </div>
+                        <div class="card-body d-flex flex-column gap-2">
+                            <a href="pos.php" class="btn btn-outline-success btn-lg text-start fw-bold shadow-sm"><i class="fas fa-cash-register me-2"></i> Abrir Punto de Venta</a>
+                            <a href="admin.php" class="btn btn-outline-primary text-start fw-bold"><i class="fas fa-box me-2"></i> Inventario</a>
+                            <a href="sales.php" class="btn btn-outline-warning text-start fw-bold"><i class="fas fa-chart-line me-2"></i> Reportes</a>
+                            <a href="users.php" class="btn btn-outline-info text-start fw-bold"><i class="fas fa-users me-2"></i> Usuarios</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
     </div>
-    <?php include 'layouts/footer.php'; ?>
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.37.1/dist/apexcharts.min.js"></script>
-    <script>
-        window.APP_JS_CHARTSALE = <?= $jsChartSales?>;
-        window.APP_JS_CHARTDATES = <?= $jsChartDates?>;
-    </script>
-    <script src="js/dashboard.js"></script>
+</main>
+</div>
+<?php include 'layouts/footer.php'; ?>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.37.1/dist/apexcharts.min.js"></script>
+<script>
+    window.APP_JS_CHARTSALE = <?= $jsChartSales ?>;
+    window.APP_JS_CHARTDATES = <?= $jsChartDates ?>;
+</script>
+<script src="js/dashboard.js"></script>
 </body>
+
 </html> ```
 
 ## Archivo: ./public/generate_pdf.php
@@ -21239,7 +21107,7 @@ function confirmDelete(id, name) {
             const originalText = btnDelete.innerHTML;
             
             btnDelete.disabled = true;
-            btnDelete.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Eliminando...';
+            btnDelete.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" ></span> Eliminando...';
 
             const fd = new FormData();
             fd.append('action', 'delete');
@@ -21268,7 +21136,7 @@ function confirmDelete(id, name) {
             const originalText = btnSubmit.innerHTML;
             
             btnSubmit.disabled = true;
-            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" ></span> Guardando...';
 
             fetch('actions/actions_category.php', {
                 method: 'POST',
@@ -21338,6 +21206,89 @@ function confirmAction(task, actionType) {
         form.submit();
     }
 } ```
+
+## Archivo: ./public/js/credits.js
+ ```javascript
+     const chartDates = window.APP_BCVRATE;
+
+    $(document).ready(function() {
+        $('#creditsTable').DataTable({
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+            order: [[4, 'desc']]
+        });
+
+        // Calculadora en vivo en el modal
+        $('#pay_amount').on('input', function() {
+            let usd = parseFloat($(this).val()) || 0;
+            $('#pay_bs_conversion').text(`Equivale a: Bs ${(usd * bcvRate).toFixed(2)}`);
+        });
+
+        // Enviar pago por AJAX
+        $('#formPayment').on('submit', function(e) {
+            e.preventDefault();
+            $('#btnSubmitPayment').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
+
+            $.ajax({
+                url: 'actions/actions_credit.php',
+                type: 'POST',
+                data: $(this).serialize(),
+                dataType: 'json',
+                success: function(res) {
+                    if(res.status) {
+                        Swal.fire('¡Éxito!', res.message, 'success').then(() => location.reload());
+                    } else {
+                        Swal.fire('Error', res.message, 'error');
+                        $('#btnSubmitPayment').prop('disabled', false).text('Confirmar Pago');
+                    }
+                },
+                error: function() {
+                    Swal.fire('Error', 'No se pudo comunicar con el servidor.', 'error');
+                    $('#btnSubmitPayment').prop('disabled', false).text('Confirmar Pago');
+                }
+            });
+        });
+    });
+
+    function openPaymentModal(id, maxAmount, customer) {
+        $('#pay_credit_id').val(id);
+        $('#pay_customer_name').text(customer);
+        $('#pay_balance_display').text('$' + parseFloat(maxAmount).toFixed(2));
+        $('#pay_amount').attr('max', maxAmount).val('');
+        $('#pay_bs_conversion').text('Equivale a: Bs 0.00');
+        
+        let modal = new bootstrap.Modal(document.getElementById('modalPayment'));
+        modal.show();
+    }
+
+    function viewHistory(credit_id) {
+        $('#historyTableBody').html('<tr><td colspan="5"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
+        let modal = new bootstrap.Modal(document.getElementById('modalHistory'));
+        modal.show();
+
+        $.ajax({
+            url: 'actions/actions_credit.php',
+            type: 'POST',
+            data: { action: 'get_history', credit_id: credit_id },
+            dataType: 'json',
+            success: function(res) {
+                if(res.status && res.data.length > 0) {
+                    let html = '';
+                    res.data.forEach(p => {
+                        html += `<tr>
+                            <td>${new Date(p.created_at).toLocaleString('es-VE')}</td>
+                            <td class="text-success fw-bold">$${parseFloat(p.amount_usd).toFixed(2)}</td>
+                            <td>Bs ${parseFloat(p.amount_bs).toFixed(2)}</td>
+                            <td class="text-capitalize">${p.payment_method.replace('_', ' ')}</td>
+                            <td><span class="badge bg-secondary">${p.username || 'N/A'}</span></td>
+                        </tr>`;
+                    });
+                    $('#historyTableBody').html(html);
+                } else {
+                    $('#historyTableBody').html('<tr><td colspan="5" class="text-muted">No hay pagos registrados.</td></tr>');
+                }
+            }
+        });
+    } ```
 
 ## Archivo: ./public/js/customers.js
  ```javascript
@@ -21576,7 +21527,7 @@ $('#inputSearchCustomer').on('keyup', function() {
 
     searchTimer = setTimeout(function() {
         $.ajax({
-            url: 'actions_customer.php',
+            url: 'actions/actions_customer.php',
             type: 'POST',
             data: { action: 'search', term: term },
             dataType: 'json',
@@ -21845,19 +21796,33 @@ function executeSale() {
             try {
                 let res = (typeof response === 'object') ? response : JSON.parse(response);
 
-                if (res.status === 'success') {
-                    document.getElementById('checkoutSuccess').style.display = 'block';
-                    document.getElementById('ticketId').innerText = res.sale_id || '####';
-                    cart = []; 
-                    renderCart(); 
-                    
-                    // Limpiar campos de crédito por si acaso
-                    $('#selectedCustomerId').val('');
-                    $('#selectedCustomerDisplay').val('');
-                    $('#creditDueDate').val('');
-                    
+                if (res.status === "success") {
+                  document.getElementById("checkoutSuccess").style.display =
+                    "block";
+                  document.getElementById("ticketId").innerText =
+                    res.sale_id || "####";
+
+                  // --- NUEVO: Asignar la acción de abrir el ticket al botón ---
+                  const btnImprimir =
+                    document.getElementById("btnImprimirTicket");
+                  if (btnImprimir && res.sale_id) {
+                    btnImprimir.onclick = function () {
+                      window.open(`ticket.php?id=${res.sale_id}`, "_blank");
+                    };
+                  }
+                  // -----------------------------------------------------------
+
+                  cart = [];
+                  renderCart();
+
+                  // Limpiar campos de crédito por si acaso
+                  $("#selectedCustomerId").val("");
+                  $("#selectedCustomerDisplay").val("");
+                  $("#creditDueDate").val("");
                 } else {
-                    throw new Error(res.message || 'Error desconocido del servidor.');
+                  throw new Error(
+                    res.message || "Error desconocido del servidor.",
+                  );
                 }
             } catch (e) {
                 document.getElementById('checkoutError').style.display = 'block';
@@ -22395,7 +22360,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
                     </div>
                     <div class="col-sm-6 text-sm-end mt-2 mt-sm-0">
                         <span class="badge bg-dark border border-warning text-warning px-3 py-2 me-2" title="Tasa de cambio oficial">
-                            <i class="fas fa-coins me-1" aria-hidden="true"></i> BCV: Bs. <?= number_format($bcvRate, 2) ?>
+                            <i class="fas fa-coins me-1" ></i> BCV: Bs. <?= number_format($bcvRate, 2) ?>
                         </span>
                         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalInsert">
                             <i class="fas fa-plus me-1"></i> Nuevo Producto
@@ -22459,7 +22424,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 
 ## Archivo: ./public/layouts/modals/modals_admin.php
  ```php
-<div class="modal fade" id="modalInsert" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalInsert" tabindex="-1" >
     <div class="modal-dialog modal-lg modal-dialog-centered"> <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i> Añadir Nuevo Producto</h5>
@@ -22554,7 +22519,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
     </div>
 </div>
 
-<div class="modal fade" id="modalEdit" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalEdit" tabindex="-1" >
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
@@ -22652,7 +22617,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 </div>
 
 
-<div class="modal fade" id="modalView" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalView" tabindex="-1" >
         <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-info text-white">
@@ -22670,7 +22635,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 
 
 
-<div class="modal fade" id="modalConfirmDelete" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalConfirmDelete" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-danger text-white border-0">
@@ -22694,7 +22659,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 
 ## Archivo: ./public/layouts/modals/modals_category.php
  ```php
-<div class="modal fade" id="modalCat" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+<div class="modal fade" id="modalCat" tabindex="-1" aria-labelledby="modalTitle" >
     <div class="modal-dialog modal-dialog-centered">
         <form id="formCat" class="modal-content">
             <div class="modal-header bg-primary text-white">
@@ -22716,7 +22681,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
         </form>
     </div>
 </div>
-<div class="modal fade" id="modalDelete" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalDelete" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content custom-modal-dark">
             <div class="modal-header bg-danger text-white">
@@ -22745,8 +22710,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 
 ## Archivo: ./public/layouts/modals/modals_pos.php
  ```php
-
-<div class="modal fade" id="modalBCV" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalBCV" tabindex="-1">
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content border-warning">
             <div class="modal-header bg-warning">
@@ -22754,7 +22718,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body text-center">
-                <label class="form-label text-muted small">Nueva Tasa (Bs/$)</label>
+                <label form="newRateInput" class="form-label text-muted small">Nueva Tasa (Bs/$)</label>
                 <input type="number" step="0.01" id="newRateInput" class="form-control form-control-lg text-center fw-bold text-dark border-warning" value="<?= $bcvRate ?>">
             </div>
             <div class="modal-footer bg-light justify-content-center">
@@ -22766,7 +22730,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 
 
 
-<div class="modal fade" id="modalClearCart" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalClearCart" tabindex="-1">
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-body text-center py-4">
@@ -22782,14 +22746,14 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
     </div>
 </div>
 
-<div class="modal fade" id="modalCheckout" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+<div class="modal fade" id="modalCheckout" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title"><i class="fas fa-cash-register me-2"></i> Procesar Venta</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="btnCloseCheckout"></button>
             </div>
-            
+
             <div id="checkoutStateConfirm">
                 <div class="modal-body bg-light">
                     <ul class="list-group list-group-flush mb-3 shadow-sm rounded">
@@ -22824,7 +22788,15 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
                     <i class="fas fa-check-circle fa-5x text-success mb-3"></i>
                     <h3 class="fw-bold text-success">¡Venta Exitosa!</h3>
                     <p class="text-muted">Ticket #<span id="ticketId" class="fw-bold text-dark"></span> generado.</p>
-                    <button class="btn btn-outline-success mt-3" data-bs-dismiss="modal" onclick="window.location.reload()"><i class="fas fa-redo me-1"></i> Nueva Venta</button>
+
+                    <div class="d-flex justify-content-center gap-2 mt-3">
+                        <button id="btnImprimirTicket" class="btn btn-primary shadow-sm" type="button">
+                            <i class="fas fa-print me-1"></i> Ver Ticket
+                        </button>
+                        <button class="btn btn-outline-success shadow-sm" data-bs-dismiss="modal" onclick="window.location.reload()">
+                            <i class="fas fa-redo me-1"></i> Nueva Venta
+                        </button>
+                    </div>
                 </div>
                 <div id="checkoutError" style="display:none;">
                     <i class="fas fa-times-circle fa-5x text-danger mb-3"></i>
@@ -22837,7 +22809,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
     </div>
 </div>
 
-<div class="modal fade" id="modalMessage" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalMessage" tabindex="-1">
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-body text-center py-4">
@@ -22845,13 +22817,13 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
                 <h5 id="msgText" class="mb-0 fw-bold"></h5>
             </div>
             <div class="modal-footer bg-light justify-content-center">
-                 <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Entendido</button>
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Entendido</button>
             </div>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="modalDefault" tabindex="-1" aria-labelledby="modalDefaultLabel" aria-hidden="true">
+<div class="modal fade" id="modalDefault" tabindex="-1" aria-labelledby="modalDefaultLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-primary text-white">
@@ -22900,59 +22872,59 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
     </div>
 </div>
 
-    <div class="modal fade" id="modalCustomer" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content shadow">
-                <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title fw-bold"><i class="fas fa-users me-2"></i> Seleccionar o Crear Cliente</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <ul class="nav nav-tabs mb-3" id="customerTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active fw-bold text-dark" id="search-tab" data-bs-toggle="tab" data-bs-target="#searchCustomerPane" type="button">Buscar</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link fw-bold text-dark" id="new-tab" data-bs-toggle="tab" data-bs-target="#newCustomerPane" type="button">Nuevo Cliente</button>
-                        </li>
-                    </ul>
+<div class="modal fade" id="modalCustomer" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold"><i class="fas fa-users me-2"></i> Seleccionar o Crear Cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <ul class="nav nav-tabs mb-3" id="customerTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold text-dark" id="search-tab" data-bs-toggle="tab" data-bs-target="#searchCustomerPane" type="button">Buscar</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold text-dark" id="new-tab" data-bs-toggle="tab" data-bs-target="#newCustomerPane" type="button">Nuevo Cliente</button>
+                    </li>
+                </ul>
 
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="searchCustomerPane">
-                            <input type="text" id="inputSearchCustomer" class="form-control mb-3 border-warning" placeholder="Buscar por nombre o cédula/RIF...">
-                            <div class="list-group" id="customerResults" style="max-height: 200px; overflow-y: auto;">
-                                <div class="text-center text-muted p-3 small">Escribe para buscar...</div>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="searchCustomerPane">
+                        <input type="text" id="inputSearchCustomer" class="form-control mb-3 border-warning" placeholder="Buscar por nombre o cédula/RIF...">
+                        <div class="list-group" id="customerResults" style="max-height: 200px; overflow-y: auto;">
+                            <div class="text-center text-muted p-3 small">Escribe para buscar...</div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="newCustomerPane">
+                        <form id="formNewCustomer">
+                            <div class="mb-2">
+                                <label form="name" class="form-label small fw-bold">Nombre Completo <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" autocomplete="name" required>
                             </div>
-                        </div>
-
-                        <div class="tab-pane fade" id="newCustomerPane">
-                            <form id="formNewCustomer">
-                                <div class="mb-2">
-                                    <label class="form-label small fw-bold">Nombre Completo <span class="text-danger">*</span></label>
-                                    <input type="text" name="name" class="form-control" required>
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label small fw-bold">Cédula / RIF</label>
-                                    <input type="text" name="document" class="form-control">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label small fw-bold">Teléfono</label>
-                                    <input type="text" name="phone" class="form-control">
-                                </div>
-                                <button type="submit" class="btn btn-success w-100 fw-bold" id="btnSaveCustomer">
-                                    <i class="fas fa-save me-1"></i> Guardar y Seleccionar
-                                </button>
-                            </form>
-                        </div>
+                            <div class="mb-2">
+                                <label form="document" class="form-label small fw-bold">Cédula / RIF</label>
+                                <input type="text" name="document" class="form-control" autocomplete="document">
+                            </div>
+                            <div class="mb-3">
+                                <label form="phone" class="form-label small fw-bold">Teléfono</label>
+                                <input type="text" name="phone" class="form-control" autocomplete="phone">
+                            </div>
+                            <button type="submit" class="btn btn-success w-100 fw-bold" id="btnSaveCustomer">
+                                <i class="fas fa-save me-1"></i> Guardar y Seleccionar
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
         </div>
-    </div> ```
+    </div>
+</div> ```
 
 ## Archivo: ./public/layouts/modals/modals_users.php
  ```php
-<div class="modal fade" id="modalUser" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalUser" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
@@ -23001,9 +22973,84 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
     </div>
 </div> ```
 
+## Archivo: ./public/layouts/modals/modal_credits.php
+ ```php
+<div class="modal fade" id="modalPayment" tabindex="-1" >
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="formPayment" class="modal-content shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-money-bill-wave me-2"></i> Registrar Abono</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" name="action" value="add_payment">
+                <input type="hidden" name="credit_id" id="pay_credit_id">
+                
+                <div class="alert alert-info py-2">
+                    Cliente: <strong id="pay_customer_name"></strong><br>
+                    Deuda Actual: <strong class="text-danger" id="pay_balance_display"></strong>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Monto a Abonar (USD) <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light fw-bold">$</span>
+                        <input type="number" step="0.01" name="amount_usd" id="pay_amount" class="form-control form-control-lg" required>
+                    </div>
+                    <small class="text-muted" id="pay_bs_conversion">Equivale a: Bs 0.00</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Método de Pago</label>
+                    <select name="payment_method" class="form-select" required>
+                        <option value="efectivo_bs">Efectivo Bolívares</option>
+                        <option value="efectivo_usd">Efectivo Divisa</option>
+                        <option value="pago_movil">Pago Móvil</option>
+                        <option value="punto">Punto de Venta</option>
+                        <option value="transferencia">Transferencia</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success px-4" id="btnSubmitPayment">Confirmar Pago</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="modalHistory" tabindex="-1" >
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-history me-2"></i> Historial de Pagos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <table class="table table-striped mb-0 text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Monto USD</th>
+                            <th>Monto BS</th>
+                            <th>Método</th>
+                            <th>Cajero</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        </tbody>
+                </table>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div> ```
+
 ## Archivo: ./public/layouts/modals/modal_sales_history.php
  ```php
-<div class="modal fade" id="modalView" tabindex="-1" aria-labelledby="modalViewLabel" aria-hidden="true">
+<div class="modal fade" id="modalView" tabindex="-1" aria-labelledby="modalViewLabel" >
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header bg-light">
@@ -23021,7 +23068,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
             </div>
         </div>
     </div>
-    <div class="modal fade" id="modalConfirmAnular" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="modalConfirmAnular" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-danger text-white">
@@ -23272,7 +23319,7 @@ require_once '../controllers/AuthController.php';
         <form  method="post">
           <div class="input-group mb-3">
             <div class="form-floating">
-              <input id="username" name="username" type="text" class="form-control" placeholder="Usuario" required />
+              <input id="username" name="username" type="text" class="form-control" placeholder="Usuario" autocomplete="username" required />
               <label for="username">Usuario</label>
             </div>
             <div class="input-group-text">
@@ -23282,7 +23329,7 @@ require_once '../controllers/AuthController.php';
 
           <div class="input-group mb-3">
             <div class="form-floating">
-              <input id="loginPassword" name="password" type="password" class="form-control" placeholder="Password" required />
+              <input id="loginPassword" name="password" type="password" class="form-control" placeholder="Password" autocomplete="current-password" required>
               <label for="loginPassword">Contraseña</label>
             </div>
             <div class="input-group-text">
@@ -23342,13 +23389,11 @@ require_once '../controllers/AuthController.php';
 <?php
 require_once '../config/db.php';
 require_once '../includes/Auth.php';
-
 $database = new Database();
 $db = $database->getConnection();
 $auth = new Auth($db);
-
 $auth->logout();
-?> ```
+ ```
 
 ## Archivo: ./public/pos.php
  ```php
@@ -23470,7 +23515,7 @@ include 'layouts/sidebar.php';
                                     <span class="h5 text-success fw-bold mb-0" id="totalBsDisplay">Bs 0.00</span>
                                 </div>
 
-                                <label class="small fw-bold text-secondary mb-1">Método de Pago</label>
+                                <label form="paymentMethod" class="small fw-bold text-secondary mb-1">Método de Pago</label>
                                 <select class="form-select mb-3 border-success" id="paymentMethod">
                                     <option value="efectivo_bs"><i class="fas fa-money-bill-wave"></i>Efectivo Bolívares</option>
                                     <option value="efectivo_usd"><i class="fas fa-dollar-sign"></i>Efectivo Divisa</option>
@@ -23480,7 +23525,7 @@ include 'layouts/sidebar.php';
                                 </select>
 
                                 <div id="creditData" style="display: none;" class="mb-3 p-3 bg-warning bg-opacity-10 border border-warning rounded">
-                                    <label class="small fw-bold text-dark">Cliente <span class="text-danger">*</span></label>
+                                    <label form="selectedCustomerDisplay" class="small fw-bold text-dark">Cliente <span class="text-danger">*</span></label>
                                     <input type="hidden" id="selectedCustomerId" name="customer_id" value="">
                                     <div class="input-group mb-2">
                                         <input type="text" id="selectedCustomerDisplay" class="form-control form-control-sm border-warning bg-white" placeholder="Ningún cliente..." readonly>
@@ -23488,7 +23533,7 @@ include 'layouts/sidebar.php';
                                             <i class="fas fa-search me-1"></i> Buscar
                                         </button>
                                     </div>
-                                    <label class="small fw-bold text-dark">Fecha límite de pago</label>
+                                    <label form="creditDueDate" class="small fw-bold text-dark">Fecha límite de pago</label>
                                     <input type="date" id="creditDueDate" name="due_date" class="form-control form-control-sm border-warning">
                                 </div>
 
@@ -23512,55 +23557,7 @@ include 'layouts/sidebar.php';
         </div>
     </main>
 
-    <div class="modal fade" id="modalCustomer" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content shadow">
-                <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title fw-bold"><i class="fas fa-users me-2"></i> Seleccionar o Crear Cliente</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <ul class="nav nav-tabs mb-3" id="customerTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active fw-bold text-dark" id="search-tab" data-bs-toggle="tab" data-bs-target="#searchCustomerPane" type="button">Buscar</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link fw-bold text-dark" id="new-tab" data-bs-toggle="tab" data-bs-target="#newCustomerPane" type="button">Nuevo Cliente</button>
-                        </li>
-                    </ul>
 
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="searchCustomerPane">
-                            <input type="text" id="inputSearchCustomer" class="form-control mb-3 border-warning" placeholder="Buscar por nombre o cédula/RIF...">
-                            <div class="list-group" id="customerResults" style="max-height: 200px; overflow-y: auto;">
-                                <div class="text-center text-muted p-3 small">Escribe para buscar...</div>
-                            </div>
-                        </div>
-
-                        <div class="tab-pane fade" id="newCustomerPane">
-                            <form id="formNewCustomer">
-                                <div class="mb-2">
-                                    <label class="form-label small fw-bold">Nombre Completo <span class="text-danger">*</span></label>
-                                    <input type="text" name="name" class="form-control" required>
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label small fw-bold">Cédula / RIF</label>
-                                    <input type="text" name="document" class="form-control">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label small fw-bold">Teléfono</label>
-                                    <input type="text" name="phone" class="form-control">
-                                </div>
-                                <button type="submit" class="btn btn-success w-100 fw-bold" id="btnSaveCustomer">
-                                    <i class="fas fa-save me-1"></i> Guardar y Seleccionar
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <?php
     include 'layouts/footer.php'; 
@@ -23782,114 +23779,134 @@ $dataPoints = !empty($chartData) ? array_column($chartData, 'total') : [];
 require_once '../controllers/SalesHistoryController.php';
 include 'layouts/head.php';
 include 'layouts/navbar.php';
-include 'layouts/sidebar.php'; 
+include 'layouts/sidebar.php';
 ?>
-    <main class="app-main">
-        <?= render_content_header($headerConfig) ?>
-        <div class="app-content">
-            <div class="container-fluid">
-                <div class="row mb-4">
-                    <div class="col-md-4 mb-3">
-                        <div class="card shadow-sm h-100 border-0 border-start border-4 border-success">
-                            <div class="card-body">
-                                <p class="mb-1 opacity-75"><i class="fas fa-dollar-sign me-1"></i> Recaudo Total en USD</p>
-                                <h3 class="mb-0">$ <?= number_format($totalDiaUsd ?? 0, 2) ?></h3>
-                            </div>
+<main class="app-main">
+    <?= render_content_header($headerConfig) ?>
+    <div class="app-content">
+        <div class="container-fluid">
+            <div class="row mb-4">
+                <div class="col-md-4 mb-3">
+                    <div class="card shadow-sm h-100 border-0 border-start border-4 border-success">
+                        <div class="card-body">
+                            <p class="mb-1 opacity-75"><i class="fas fa-dollar-sign me-1"></i> Recaudo Total en USD</p>
+                            <h3 class="mb-0">$ <?= number_format($totalDiaUsd ?? 0, 2) ?></h3>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="card shadow-sm h-100 border-0 border-start border-4 border-warning">
-                            <div class="card-body">
-                                <p class="mb-1 text-secondary"><i class="fas fa-money-bill-wave me-1"></i> Equivalencia en Bs</p>
-                                <h3 class="mb-0">Bs. <?= number_format($totalDiaBs ?? 0, 2) ?></h3>
-                                <small class="text-muted">Tasa referencial</small>
-                            </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card shadow-sm h-100 border-0 border-start border-4 border-warning">
+                        <div class="card-body">
+                            <p class="mb-1 text-secondary"><i class="fas fa-money-bill-wave me-1"></i> Equivalencia en Bs</p>
+                            <h3 class="mb-0">Bs. <?= number_format($totalDiaBs ?? 0, 2) ?></h3>
+                            <small class="text-muted">Tasa referencial</small>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="card shadow-sm h-100 border-0 border-start border-4 border-info">
-                            <div class="card-body py-2">
-                                <p class="mb-1 fw-bold text-muted small">TICKET POR MÉTODO DE PAGO</p>
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span class="small"><i class="fas fa-cash-register text-success me-1"></i> Efectivo:</span>
-                                    <span class="fw-bold"><?= $ticketsEfectivo ?? 0 ?></span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span class="small"><i class="fas fa-credit-card text-primary me-1"></i> Punto/Tarjeta:</span>
-                                    <span class="fw-bold"><?= $ticketsPunto ?? 0 ?></span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="small"><i class="fas fa-mobile-alt text-info me-1"></i> Pago Móvil:</span>
-                                    <span class="fw-bold"><?= $ticketsPMovil ?? 0 ?></span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center mt-2">
-                                    <span class="small"><i class="fas fa-file-invoice-dollar text-secondary me-1"></i> Crédito:</span>
-                                    <span class="fw-bold"><?= $ticketsCredito ?? 0 ?></span>
-                                </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card shadow-sm h-100 border-0 border-start border-4 border-info">
+                        <div class="card-body py-2">
+                            <p class="mb-1 fw-bold text-muted small">TICKET POR MÉTODO DE PAGO</p>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small"><i class="fas fa-cash-register text-success me-1"></i> Efectivo:</span>
+                                <span class="fw-bold"><?= $ticketsEfectivo ?? 0 ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small"><i class="fas fa-credit-card text-primary me-1"></i> Punto/Tarjeta:</span>
+                                <span class="fw-bold"><?= $ticketsPunto ?? 0 ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="small"><i class="fas fa-mobile-alt text-info me-1"></i> Pago Móvil:</span>
+                                <span class="fw-bold"><?= $ticketsPMovil ?? 0 ?></span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <span class="small"><i class="fas fa-file-invoice-dollar text-secondary me-1"></i> Crédito:</span>
+                                <span class="fw-bold"><?= $ticketsCredito ?? 0 ?></span>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="card card-outline card-primary shadow-sm">
-                    
-                    <div class="card-header border-0 pb-0">
-                        <div class="row gy-3 align-items-center">
-                            <div class="col-12 col-xl-6">
-                                <div class="btn-group shadow-sm w-100 w-md-auto overflow-auto">
-                                    <a href="?filter=all" class="btn btn-sm btn-outline-primary <?= $filter=='all'?'active':'' ?>">Todos</a>
-                                    <a href="?filter=today" class="btn btn-sm btn-outline-primary <?= $filter=='today'?'active':'' ?>">Hoy</a>
-                                    <a href="?filter=7days" class="btn btn-sm btn-outline-primary <?= $filter=='7days'?'active':'' ?>">Últimos 7 días</a>
-                                    <a href="?filter=30days" class="btn btn-sm btn-outline-primary <?= $filter=='30days'?'active':'' ?>">Últimos 30 días</a>
-                                    <a href="?filter=custom" class="btn btn-sm btn-outline-primary <?= $filter=='custom'?'active':'' ?>"><i class="fas fa-calendar-alt"></i> Personalizado</a>
-                                </div>
-                            </div>
-                            
-                            <div class="col-12 col-xl-6 d-flex justify-content-xl-end gap-2">
-                                <div class="input-group input-group-sm" style="max-width: 300px;">
-                                    <span class="input-group-text bg-transparent text-muted"><i class="fas fa-search"></i></span>
-                                    <input type="text" id="tableSearch" class="form-control" placeholder="Buscar ticket, cliente o cajero...">
-                                </div>
-                                <button class="btn btn-outline-sm btn-outline-success shadow-sm" id="btnExportExcel">
-                                    <i class="fas fa-file-excel me-1"></i> Exportar a Excel
-                                </button>
+            <div class="card card-outline card-primary shadow-sm">
+
+                <div class="card-header border-0 pb-0">
+                    <div class="row gy-3 align-items-center">
+                        <div class="col-12 col-xl-6">
+                            <div class="btn-group shadow-sm w-100 w-md-auto overflow-auto">
+                                <a href="?filter=all" class="btn btn-sm btn-outline-primary <?= $filter == 'all' ? 'active' : '' ?>">Todos</a>
+                                <a href="?filter=today" class="btn btn-sm btn-outline-primary <?= $filter == 'today' ? 'active' : '' ?>">Hoy</a>
+                                <a href="?filter=7days" class="btn btn-sm btn-outline-primary <?= $filter == '7days' ? 'active' : '' ?>">Últimos 7 días</a>
+                                <a href="?filter=30days" class="btn btn-sm btn-outline-primary <?= $filter == '30days' ? 'active' : '' ?>">Últimos 30 días</a>
+                                <a href="?filter=custom" class="btn btn-sm btn-outline-primary <?= $filter == 'custom' ? 'active' : '' ?>"><i class="fas fa-calendar-alt"></i> Personalizado</a>
                             </div>
                         </div>
+
+                        <div class="col-12 col-xl-6 d-flex justify-content-xl-end gap-2">
+                            <div class="input-group input-group-sm" style="max-width: 300px;">
+                                <span class="input-group-text bg-transparent text-muted"><i class="fas fa-search"></i></span>
+                                <input type="text" id="tableSearch" class="form-control" placeholder="Buscar ticket, cliente o cajero...">
+                            </div>
+                            <button class="btn btn-outline-sm btn-outline-success shadow-sm" id="btnExportExcel">
+                                <i class="fas fa-file-excel me-1"></i> Exportar a Excel
+                            </button>
+                        </div>
                     </div>
+                </div>
 
-                    <hr class="mx-3 mt-3 mb-0">
+                <hr class="mx-3 mt-3 mb-0">
 
-                    <div class="card-body p-0 mt-2">
-                        <div class="table-responsive">
-                            <table class="table table-hover table-striped align-middle mb-0 text-center">
-                                <thead class="table-transparent">
-                                    <tr>
-                                        <th class="ps-4 text-start">Ticket</th>
-                                        <th>Fecha / Hora</th>
-                                        <th>Productos (Cant/Unidad)</th>
-                                        <th>Total USD</th>
-                                        <th>Total BS</th>
-                                        <th class="text-end pe-4">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="historyBody">
-                                    <?php if(!empty($sales)): ?>
-                                        <?php foreach($sales as $s): ?>
+                <div class="card-body p-0 mt-2">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped align-middle mb-0 text-center">
+                            <thead class="table-transparent">
+                                <tr>
+                                    <th class="ps-4 text-start">Ticket</th>
+                                    <th>Fecha / Hora</th>
+                                    <th>Cliente</th>
+                                    <th>Método Pago</th>
+                                    <th>Cant. Ítems</th>
+                                    <th>Total USD</th>
+                                    <th>Total BS</th>
+                                    <th class="text-end pe-4">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyBody">
+                                <?php if (!empty($sales)): ?>
+                                    <?php foreach ($sales as $s): ?>
                                         <tr class="<?= $s['status'] === 'anulada' ? 'table-danger opacity-75' : '' ?>">
                                             <td class="ps-4 text-start fw-bold text-primary">
                                                 #<?= $s['id'] ?>
-                                                <?= $s['status'] === 'anulada' ? '<span class="badge bg-danger small">ANULADA</span>' : '' ?>
-                                        </td>
-                                            <td><small><?= date('d/m/Y', strtotime($s['created_at'])) ?><br><span class="text-muted"><?= date('h:i A', strtotime($s['created_at'])) ?></span></small></td>
-                                            
-                                            <td><small class="text-muted"><?= htmlspecialchars($s['products_summary'] ?? '0 Ítems') ?></small></td>
-                                            
+                                                <?= $s['status'] === 'anulada' ? '<br><span class="badge bg-danger small mt-1">ANULADA</span>' : '' ?>
+                                            </td>
+                                            <td>
+                                                <small><?= date('d/m/Y', strtotime($s['created_at'])) ?><br>
+                                                    <span class="text-muted"><?= date('h:i A', strtotime($s['created_at'])) ?></span></small>
+                                            </td>
+
+                                            <td>
+                                                <span class="fw-medium text-dark">
+                                                    <i class="fas fa-user-circle text-muted me-1"></i>
+                                                    <?= htmlspecialchars($s['customer_name'] ?? 'Mostrador') ?>
+                                                </span>
+                                            </td>
+
+                                            <td>
+                                                <span class="badge bg-light border text-dark text-capitalize">
+                                                    <?= str_replace('_', ' ', htmlspecialchars($s['payment_method'])) ?>
+                                                </span>
+                                            </td>
+
+                                            <td>
+                                                <span class="badge text-bg-secondary rounded-pill fs-6"><?= $s['total_items'] ?? 0 ?></span>
+                                            </td>
+
                                             <td class="fw-bold text-success">$ <?= number_format($s['total_amount_usd'], 2) ?></td>
                                             <td class="fw-bold">Bs. <?= number_format($s['total_amount_bs'] ?? 0, 2) ?></td>
-                                            
+
                                             <td class="text-end pe-4">
                                                 <div class="btn-group shadow-sm">
-                                                    <a href="ticket.php?id=<?= $s['id'] ?>" target="_blank"  class="btn btn-sm btn-outline-secondary me-1" title="Ver Ticket">
+                                                    <a href="ticket.php?id=<?= $s['id'] ?>" target="_blank" class="btn btn-sm btn-outline-secondary me-1" title="Ver Ticket">
                                                         <i class="fas fa-receipt text-secondary"></i>
                                                     </a>
                                                     <button type="button" class="btn btn-sm btn-outline-info me-1" data-bs-toggle="modal" data-bs-target="#modalView" onclick="loadSaleDetails(<?= $s['id'] ?>)" title="Ver Detalles">
@@ -23898,47 +23915,49 @@ include 'layouts/sidebar.php';
                                                     <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="printTicket(<?= $s['id'] ?>)" title="Imprimir">
                                                         <i class="fas fa-print"></i>
                                                     </button>
-                                                    <?php if($s['status'] !== 'anulada'): ?>
-                                                    <button type="button" class="btn btn-sm btn-outline-danger me-1" onclick="cancelSale(<?= $s['id'] ?>)" title="Anular Venta">
-                                                        <i class="fas fa-times-circle"></i>
-                                                    </button>
-                                                     <?php endif; ?>
+                                                    <?php if ($s['status'] !== 'anulada'): ?>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger me-1" onclick="cancelSale(<?= $s['id'] ?>)" title="Anular Venta">
+                                                            <i class="fas fa-times-circle"></i>
+                                                        </button>
+                                                    <?php endif; ?>
                                                 </div>
                                             </td>
                                         </tr>
-                                        <?php endforeach; ?>
-                                    <?php else: ?>
-                                        <tr><td colspan="6" class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block opacity-50"></i>No hay ventas registradas en este período.</td></tr>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="8" class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block opacity-50"></i>No hay ventas registradas en este período.</td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <div class="modal fade" id="modalView" tabindex="-1" aria-labelledby="modalViewLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-light">
-                    <h5 class="modal-title" id="modalViewLabel"><i class="fas fa-list text-primary me-2"></i>Detalles de la Venta <span id="modalTicketNumber" class="fw-bold"></span></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="modalViewContent">
-                    <div class="text-center py-4 text-muted">
-                        <div class="spinner-border spinner-border-sm me-2" role="status"></div> Cargando detalles...
-                    </div>
-                </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
     </div>
+</main>
 
-    <div class="modal fade" id="modalConfirmAnular" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalView" tabindex="-1" aria-labelledby="modalViewLabel">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title" id="modalViewLabel"><i class="fas fa-list text-primary me-2"></i>Detalles de la Venta <span id="modalTicketNumber" class="fw-bold"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalViewContent">
+                <div class="text-center py-4 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div> Cargando detalles...
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalConfirmAnular" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-danger text-white">
@@ -23958,8 +23977,9 @@ include 'layouts/sidebar.php';
 </div>
 
 <?php include 'layouts/footer.php'; ?>
-    <script src="js/sales_history.js"></script>
+<script src="js/sales_history.js"></script>
 </body>
+
 </html> ```
 
 ## Archivo: ./public/search_products.php

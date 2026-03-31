@@ -1,4 +1,4 @@
-<div class="modal fade" id="modalUser" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalUser" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">

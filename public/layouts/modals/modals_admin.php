@@ -1,4 +1,4 @@
-<div class="modal fade" id="modalInsert" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalInsert" tabindex="-1" >
     <div class="modal-dialog modal-lg modal-dialog-centered"> <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i> Añadir Nuevo Producto</h5>
@@ -93,7 +93,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalEdit" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalEdit" tabindex="-1" >
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
@@ -191,7 +191,7 @@
 </div>
 
 
-<div class="modal fade" id="modalView" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalView" tabindex="-1" >
         <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-info text-white">
@@ -209,7 +209,7 @@
 
 
 
-<div class="modal fade" id="modalConfirmDelete" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalConfirmDelete" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-danger text-white border-0">

@@ -1,5 +1,4 @@
-
-<div class="modal fade" id="modalBCV" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalBCV" tabindex="-1">
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content border-warning">
             <div class="modal-header bg-warning">
@@ -7,7 +6,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body text-center">
-                <label class="form-label text-muted small">Nueva Tasa (Bs/$)</label>
+                <label form="newRateInput" class="form-label text-muted small">Nueva Tasa (Bs/$)</label>
                 <input type="number" step="0.01" id="newRateInput" class="form-control form-control-lg text-center fw-bold text-dark border-warning" value="<?= $bcvRate ?>">
             </div>
             <div class="modal-footer bg-light justify-content-center">
@@ -19,7 +18,7 @@
 
 
 
-<div class="modal fade" id="modalClearCart" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalClearCart" tabindex="-1">
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-body text-center py-4">
@@ -35,14 +34,14 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalCheckout" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+<div class="modal fade" id="modalCheckout" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title"><i class="fas fa-cash-register me-2"></i> Procesar Venta</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="btnCloseCheckout"></button>
             </div>
-            
+
             <div id="checkoutStateConfirm">
                 <div class="modal-body bg-light">
                     <ul class="list-group list-group-flush mb-3 shadow-sm rounded">
@@ -77,7 +76,15 @@
                     <i class="fas fa-check-circle fa-5x text-success mb-3"></i>
                     <h3 class="fw-bold text-success">¡Venta Exitosa!</h3>
                     <p class="text-muted">Ticket #<span id="ticketId" class="fw-bold text-dark"></span> generado.</p>
-                    <button class="btn btn-outline-success mt-3" data-bs-dismiss="modal" onclick="window.location.reload()"><i class="fas fa-redo me-1"></i> Nueva Venta</button>
+
+                    <div class="d-flex justify-content-center gap-2 mt-3">
+                        <button id="btnImprimirTicket" class="btn btn-primary shadow-sm" type="button">
+                            <i class="fas fa-print me-1"></i> Ver Ticket
+                        </button>
+                        <button class="btn btn-outline-success shadow-sm" data-bs-dismiss="modal" onclick="window.location.reload()">
+                            <i class="fas fa-redo me-1"></i> Nueva Venta
+                        </button>
+                    </div>
                 </div>
                 <div id="checkoutError" style="display:none;">
                     <i class="fas fa-times-circle fa-5x text-danger mb-3"></i>
@@ -90,7 +97,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalMessage" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalMessage" tabindex="-1">
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-body text-center py-4">
@@ -98,13 +105,13 @@
                 <h5 id="msgText" class="mb-0 fw-bold"></h5>
             </div>
             <div class="modal-footer bg-light justify-content-center">
-                 <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Entendido</button>
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Entendido</button>
             </div>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="modalDefault" tabindex="-1" aria-labelledby="modalDefaultLabel" aria-hidden="true">
+<div class="modal fade" id="modalDefault" tabindex="-1" aria-labelledby="modalDefaultLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-primary text-white">
@@ -153,52 +160,52 @@
     </div>
 </div>
 
-    <div class="modal fade" id="modalCustomer" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content shadow">
-                <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title fw-bold"><i class="fas fa-users me-2"></i> Seleccionar o Crear Cliente</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <ul class="nav nav-tabs mb-3" id="customerTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active fw-bold text-dark" id="search-tab" data-bs-toggle="tab" data-bs-target="#searchCustomerPane" type="button">Buscar</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link fw-bold text-dark" id="new-tab" data-bs-toggle="tab" data-bs-target="#newCustomerPane" type="button">Nuevo Cliente</button>
-                        </li>
-                    </ul>
+<div class="modal fade" id="modalCustomer" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold"><i class="fas fa-users me-2"></i> Seleccionar o Crear Cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <ul class="nav nav-tabs mb-3" id="customerTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold text-dark" id="search-tab" data-bs-toggle="tab" data-bs-target="#searchCustomerPane" type="button">Buscar</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold text-dark" id="new-tab" data-bs-toggle="tab" data-bs-target="#newCustomerPane" type="button">Nuevo Cliente</button>
+                    </li>
+                </ul>
 
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="searchCustomerPane">
-                            <input type="text" id="inputSearchCustomer" class="form-control mb-3 border-warning" placeholder="Buscar por nombre o cédula/RIF...">
-                            <div class="list-group" id="customerResults" style="max-height: 200px; overflow-y: auto;">
-                                <div class="text-center text-muted p-3 small">Escribe para buscar...</div>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="searchCustomerPane">
+                        <input type="text" id="inputSearchCustomer" class="form-control mb-3 border-warning" placeholder="Buscar por nombre o cédula/RIF...">
+                        <div class="list-group" id="customerResults" style="max-height: 200px; overflow-y: auto;">
+                            <div class="text-center text-muted p-3 small">Escribe para buscar...</div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="newCustomerPane">
+                        <form id="formNewCustomer">
+                            <div class="mb-2">
+                                <label form="name" class="form-label small fw-bold">Nombre Completo <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" autocomplete="name" required>
                             </div>
-                        </div>
-
-                        <div class="tab-pane fade" id="newCustomerPane">
-                            <form id="formNewCustomer">
-                                <div class="mb-2">
-                                    <label class="form-label small fw-bold">Nombre Completo <span class="text-danger">*</span></label>
-                                    <input type="text" name="name" class="form-control" required>
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label small fw-bold">Cédula / RIF</label>
-                                    <input type="text" name="document" class="form-control">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label small fw-bold">Teléfono</label>
-                                    <input type="text" name="phone" class="form-control">
-                                </div>
-                                <button type="submit" class="btn btn-success w-100 fw-bold" id="btnSaveCustomer">
-                                    <i class="fas fa-save me-1"></i> Guardar y Seleccionar
-                                </button>
-                            </form>
-                        </div>
+                            <div class="mb-2">
+                                <label form="document" class="form-label small fw-bold">Cédula / RIF</label>
+                                <input type="text" name="document" class="form-control" autocomplete="document">
+                            </div>
+                            <div class="mb-3">
+                                <label form="phone" class="form-label small fw-bold">Teléfono</label>
+                                <input type="text" name="phone" class="form-control" autocomplete="phone">
+                            </div>
+                            <button type="submit" class="btn btn-success w-100 fw-bold" id="btnSaveCustomer">
+                                <i class="fas fa-save me-1"></i> Guardar y Seleccionar
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>

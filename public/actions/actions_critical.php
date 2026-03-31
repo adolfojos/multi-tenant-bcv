@@ -47,16 +47,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['critical_action'])) {
         }
 
         // Redirigir de vuelta a configuración con un mensaje de éxito
-        header("Location: configuration.php?success=" . urlencode($msg));
+        header("Location: ../configuration.php?success=" . urlencode($msg));
         exit;
 
     } catch (Exception $e) {
         // Redirigir de vuelta con el mensaje de error
-        header("Location: configuration.php?error=" . urlencode($e->getMessage()));
+        header("Location: ../configuration.php?error=" . urlencode($e->getMessage()));
         exit;
     }
 } else {
     // Si entran directamente a la URL sin POST, los devolvemos
-    header("Location: configuration.php");
+    header("Location: ../configuration.php");
     exit;
 }

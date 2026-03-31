@@ -55,7 +55,7 @@ include 'layouts/sidebar.php';
     </div>
 </main>
 
-<div class="modal fade" id="modalCustomerForm" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalCustomerForm" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered">
         <form id="formCustomer" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
