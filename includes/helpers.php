@@ -3,6 +3,7 @@ function render_content_header($config)
 {
     // Valores por defecto para evitar errores
     $title       = $config['title'] ?? 'Panel';
+    $colorico    = $config['colorico'] ?? 'primary';
     $icon        = $config['icon'] ?? 'fas fa-home';
     $tenant      = $config['tenant'] ?? 'Sistema POS';
     $bcv         = $config['bcv'] ?? 0;
@@ -17,7 +18,7 @@ function render_content_header($config)
             <div class="row align-items-center">
                 <div class="col-sm-6">
                     <h3 class="mb-0">
-                        <i class="<?= htmlspecialchars($icon) ?> text-primary me-2"></i>
+                        <i class="<?= htmlspecialchars($icon) ?> text-<?= $colorico ?> me-2"></i>
                         <?= htmlspecialchars($title) ?>
                     </h3>
                     <small class="text-secondary"><?= htmlspecialchars($tenant) ?></small>

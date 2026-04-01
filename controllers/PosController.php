@@ -60,11 +60,12 @@ foreach($kpiQueries as $key => $query){
 }
 
 $headerConfig = [
-    'title'  => 'Punto de Venta',
-    'icon'   => 'fas fa-cash-register',
-    'tenant' => $tenant_name,
-    'bcv'    => $bcvRate,
-    'button' => [
+    'title'     => 'Punto de Venta (POS)',
+    'colorico'  => 'success',
+    'icon'      => 'bi bi-cart-plus-fill',
+    'tenant'    => $tenant_name,
+    'bcv'       => $bcvRate,
+    'button'    => [
         'text'   => ' Ventas de Hoy: <span class="text-success fw-bold"> $' . number_format($sales ?? 0, 2) . '</span> / <span class="text-primary fw-bold">Bs.' . number_format(($sales * $bcvRate) ?? 0, 2) . '</span>',
         'icon'   => 'fas fa-coins me-1',
        

@@ -21,6 +21,11 @@ try {
 } catch (Exception $e) {
     $sales = [];
 }
+// Variables para el layout
+$tenant_name = $_SESSION['tenant_name'] ?? 'Mi Negocio';
+$pageTitle = "Ventas - " . $tenant_name;
+$current_page = "Ventas";
+$pagina_actual = basename($_SERVER['PHP_SELF']);
 
 // Variables para las tarjetas de métricas
 $totalDiaUsd = 0;
@@ -56,9 +61,12 @@ foreach($sales as $s) {
 }
 
 $headerConfig = [
-    'title'  => 'Historial de Ventas',
-    'icon'   => 'fas fa-history',
-    'tenant' => $tenant_name,
-    'bcv'    => $bcvRate,
+    'title'     => 'Historial de Ventas',
+    'colorico'  => 'warning',
+    'icon'      => 'bi bi-receipt',
+    'tenant'    => $tenant_name,
+    'bcv'       => $bcvRate,
     
     ];
+
+  

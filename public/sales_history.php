@@ -108,14 +108,15 @@ include 'layouts/sidebar.php';
                                             </td>
 
                                             <td>
-                                                <span class="fw-medium text-dark">
+                                                <span class="fw-medium tex-primary">
                                                     <i class="fas fa-user-circle text-muted me-1"></i>
-                                                    <?= htmlspecialchars($s['customer_name'] ?? 'Mostrador') ?>
+                                                    <?= htmlspecialchars($s['customer_name'] ?? 'Contado') ?>
                                                 </span>
                                             </td>
 
                                             <td>
-                                                <span class="badge bg-light border text-dark text-capitalize">
+                                                
+                                                <span class="badge bg-light border text-warning text-capitalize">
                                                     <?= str_replace('_', ' ', htmlspecialchars($s['payment_method'])) ?>
                                                 </span>
                                             </td>
@@ -160,46 +161,10 @@ include 'layouts/sidebar.php';
         </div>
     </div>
 </main>
-
-<div class="modal fade" id="modalView" tabindex="-1" aria-labelledby="modalViewLabel">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-light">
-                <h5 class="modal-title" id="modalViewLabel"><i class="fas fa-list text-primary me-2"></i>Detalles de la Venta <span id="modalTicketNumber" class="fw-bold"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="modalViewContent">
-                <div class="text-center py-4 text-muted">
-                    <div class="spinner-border spinner-border-sm me-2" role="status"></div> Cargando detalles...
-                </div>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalConfirmAnular" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i> Confirmar Anulación</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center py-4">
-                <p class="fs-5 mb-0">¿Estás completamente seguro de que deseas <strong>ANULAR</strong> la venta <span id="spanTicketAnular" class="text-danger fw-bold"></span>?</p>
-                <p class="text-muted small mt-2">Esta acción no se puede deshacer y revertirá el stock/totales.</p>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="btnConfirmarAnular">Sí, Anular Venta</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<?php include 'layouts/footer.php'; ?>
+<?php
+    include 'layouts/footer.php';
+    include 'layouts/modals/modals_sales_history.php';
+?>
 <script src="js/sales_history.js"></script>
 </body>
 

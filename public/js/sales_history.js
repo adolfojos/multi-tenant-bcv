@@ -21,7 +21,7 @@ function loadSaleDetails(id) {
                               </div>`;
 
     // Reemplaza 'get_sale_details.php' con la ruta real de tu endpoint
-    fetch(`controllers/get_sale_details.php?id=${id}`)
+    fetch(`get_sale_details.php?id=${id}`)
         .then(response => response.text()) // o .json() si devuelves JSON y construyes el HTML aquí
         .then(data => {
             modalContent.innerHTML = data;

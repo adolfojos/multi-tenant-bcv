@@ -73,7 +73,8 @@ try {
 
 $headerConfig = [
     'title'  => 'Inventario',
-    'icon'   => 'fas fa-box',
+    'icon'   => 'bi bi-box-seam-fill',
+    'colorico' => 'primary',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [

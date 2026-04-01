@@ -48,7 +48,8 @@ try {
 
 $headerConfig = [
     'title'  => 'Categorías',
-    'icon'   => 'fas fa-tags',
+    'icon'   => 'bi bi-tags-fill',
+    'colorico' => 'info',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [

@@ -71,7 +71,8 @@ try {
 
 $headerConfig = [
     'title'  => 'Flujo de Caja',
-    'icon'   => 'fas fa-wallet',
+    'icon'   => 'bi bi-graph-up-arrow',
+    'colorico' => 'success',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [

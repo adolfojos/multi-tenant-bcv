@@ -1,3 +1,4 @@
+
 <div class="modal fade" id="modalPayment" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered">
         <form id="formPayment" class="modal-content shadow">

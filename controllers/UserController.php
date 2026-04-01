@@ -38,7 +38,8 @@ $adminCount = count(array_filter($users, function($u) {
 
 $headerConfig = [
     'title'  => 'Gestión de Usuarios',
-    'icon'   => 'fas fa-users-cog',
+    'icon'   => 'bi bi-people-fill',
+    'colorico' => 'primary',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [

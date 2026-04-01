@@ -412,7 +412,7 @@ function renderProductsGrid(products) {
         const price_usd = parseFloat(p.price_base_usd) * (1 + (parseFloat(p.profit_margin) / 100));
         const price_bs = price_usd * bcvRate;
         const is_stock = p.stock > 0;
-        const img_url = p.image ? `uploads/${escapeHtml(p.image)}` : null;
+        const img_url = p.image ? `${escapeHtml(p.image)}` : null;
         const desc = p.description ? escapeHtml(p.description) : 'Sin descripción';
         const sku = p.sku ? escapeHtml(p.sku) : 'N/A';
         const name = escapeHtml(p.name);

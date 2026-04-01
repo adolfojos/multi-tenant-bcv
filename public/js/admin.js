@@ -38,7 +38,7 @@ function viewProduct(p) {
     if (!modalViewInstance) return alert('El modal aún no se ha inicializado.');
 
     const imgHtml = p.image 
-        ? `<div class="text-center mb-3"><img src="uploads/${p.image}" class="img-fluid rounded border shadow-sm" style="max-height: 200px; object-fit: contain;"></div>` 
+        ? `<div class="text-center mb-3"><img src="${p.image}" class="img-fluid rounded border shadow-sm" style="max-height: 200px; object-fit: contain;"></div>` 
         : `<div class="text-center py-4 bg-secondary bg-opacity-10 border rounded mb-3"><i class="fas fa-box fa-4x text-secondary opacity-50"></i></div>`;
     
     const descHtml = p.description 

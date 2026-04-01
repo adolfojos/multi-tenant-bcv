@@ -40,7 +40,8 @@ foreach($credits as $c) {
 
 $headerConfig = [
     'title'  => 'Cuentas por Cobrar',
-    'icon'   => 'fas fa-hand-holding-usd',
+    'colorico'  => 'danger',
+    'icon'   => 'bi bi-calendar-check',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate
 ];

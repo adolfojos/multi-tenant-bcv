@@ -113,7 +113,7 @@ include 'layouts/sidebar.php';
                                             <td class="ps-3">
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($p['image'])): ?>
-                                                        <img src="uploads/<?= htmlspecialchars($p['image']) ?>" class="rounded object-fit-contain me-3 border" style="width: 45px; height: 45px;" alt="img">
+                                                        <img src="<?= htmlspecialchars($p['image']) ?>" class="rounded object-fit-contain me-3 border" style="width: 45px; height: 45px;" alt="img">
                                                     <?php else: ?>
                                                         <div class="bg-secondary bg-opacity-25 rounded d-flex align-items-center justify-content-center me-3 border" style="width: 45px; height: 45px;">
                                                             <i class="fas fa-box text-secondary"></i>

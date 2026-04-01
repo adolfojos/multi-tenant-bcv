@@ -55,7 +55,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: admin.php?msg=created"); 
+                header("Location: ../admin.php?msg=created"); 
                 exit;
             } else {
                 throw new Exception("No se pudo crear el producto en la base de datos.");
@@ -111,7 +111,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: admin.php?msg=updated");
+                header("Location: ../admin.php?msg=updated");
                 exit;
             } else {
                 throw new Exception("Error al ejecutar la actualización.");
@@ -132,7 +132,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: admin.php?msg=deleted");
+                header("Location: ../admin.php?msg=deleted");
                 exit;
             } else {
                 throw new Exception("Error al intentar eliminar el producto.");
