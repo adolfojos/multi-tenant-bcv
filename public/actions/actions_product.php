@@ -140,7 +140,7 @@ try {
             break;
 
         default:
-            header("Location: admin.php");
+            header("Location: ../admin.php");
             exit;
     }
 } catch (Exception $e) {
