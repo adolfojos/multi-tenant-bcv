@@ -145,7 +145,7 @@ try {
     }
 } catch (Exception $e) {
     // Redirigir con el mensaje de error para que se muestre en el alert de Bootstrap
-    header("Location: admin.php?error=" . urlencode($e->getMessage()));
+    header("Location: ../admin.php?error=" . urlencode($e->getMessage()));
     exit;
 }
 ?>

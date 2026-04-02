@@ -128,7 +128,8 @@ try {
 
 $headerConfig = [
     'title'  => 'Inventario',
-    'icon'   => 'fas fa-box',
+    'icon'   => 'bi bi-box-seam-fill',
+    'colorico' => 'primary',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [
@@ -261,7 +262,8 @@ try {
 
 $headerConfig = [
     'title'  => 'Categorías',
-    'icon'   => 'fas fa-tags',
+    'icon'   => 'bi bi-tags-fill',
+    'colorico' => 'info',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [
@@ -362,7 +364,8 @@ foreach($credits as $c) {
 
 $headerConfig = [
     'title'  => 'Cuentas por Cobrar',
-    'icon'   => 'fas fa-hand-holding-usd',
+    'colorico'  => 'danger',
+    'icon'   => 'bi bi-calendar-check',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate
 ];
@@ -585,87 +588,6 @@ $headerConfig = [
 ];
 ?> ```
 
-## Archivo: ./controllers/get_sale_details.php
- ```php
-<?php
-require_once '../includes/Middleware.php';
-require_once '../config/db.php';
-require_once '../includes/Sale.php';
-
-// Verificación de sesión y seguridad
-if (session_status() === PHP_SESSION_NONE) session_start();
-Middleware::checkAuth();
-
-$db = (new Database())->getConnection();
-$tenant_id = $_SESSION['tenant_id'] ?? 1;
-$user_id = $_SESSION['user_id'] ?? 1;
-
-// Capturar y validar el ID de la venta
-$sale_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-
-if ($sale_id <= 0) {
-    echo '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>ID de venta no válido.</div>';
-    exit;
-}
-
-$saleObj = new Sale($db, $tenant_id, $user_id);
-
-try {
-    // Necesitamos que tu clase Sale tenga estos métodos (te dejo el ejemplo abajo)
-    $details = $saleObj->getSaleItems($sale_id); // Tu método original
-    $saleHeader = $saleObj->getSaleHeader($sale_id); // Tu método original
-} catch (Exception $e) {
-    echo '<div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i>Error al consultar los detalles de la base de datos.</div>';
-    exit;
-}
-
-if (empty($details)) {
-    echo '<div class="alert alert-info text-center py-4"><i class="fas fa-box-open fa-2x mb-2 d-block opacity-50"></i>No se encontraron productos registrados para esta venta.</div>';
-    exit;
-}
-?>
-
-<div class="table-responsive">
-    <table class="table table-sm table-bordered table-striped align-middle text-center mb-0">
-        <thead class="table-light">
-            <tr>
-                <th class="text-start">Producto</th>
-                <th>Cant.</th>
-                <th>Precio Unit. (USD)</th>
-                <th>Subtotal (USD)</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($details as $d): ?>
-            <tr>
-                <td class="text-start fw-medium"><?= htmlspecialchars($d['product_name'] ?? 'Producto Desconocido') ?></td>
-                <td><span class="badge text-bg-secondary rounded-pill"><?= $d['quantity'] ?></span></td>
-
-                <td>$ <?= number_format($d['price_at_moment_usd'], 2) ?></td>
-    <td class="fw-bold">$ <?= number_format($d['price_at_moment_usd'] * $d['quantity'], 2) ?></td>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-        <?php if (!empty($saleHeader)): ?>
-        <tfoot class="table-light">
-            <tr>
-                <td colspan="3" class="text-end fw-bold">Total Pagado:</td>
-                <td class="fw-bold text-success fs-5">$ <?= number_format($saleHeader['total_amount_usd'] ?? 0, 2) ?></td>
-            </tr>
-        </tfoot>
-        <?php endif; ?>
-    </table>
-</div>
-
-<div class="d-flex justify-content-between align-items-center mt-3 border-top pt-3">
-    <small class="text-muted">
-        <i class="fas fa-user-tag me-1"></i> Cajero: <?= htmlspecialchars($saleHeader['username'] ?? 'N/A') ?>
-    </small>
-    <button class="btn btn-sm btn-outline-primary" onclick="printTicket(<?= $sale_id ?>)">
-        <i class="fas fa-print me-1"></i> Imprimir Recibo
-    </button>
-</div> ```
-
 ## Archivo: ./controllers/PosController.php
  ```php
 <?php
@@ -730,11 +652,12 @@ foreach($kpiQueries as $key => $query){
 }
 
 $headerConfig = [
-    'title'  => 'Punto de Venta',
-    'icon'   => 'fas fa-cash-register',
-    'tenant' => $tenant_name,
-    'bcv'    => $bcvRate,
-    'button' => [
+    'title'     => 'Punto de Venta (POS)',
+    'colorico'  => 'success',
+    'icon'      => 'bi bi-cart-plus-fill',
+    'tenant'    => $tenant_name,
+    'bcv'       => $bcvRate,
+    'button'    => [
         'text'   => ' Ventas de Hoy: <span class="text-success fw-bold"> $' . number_format($sales ?? 0, 2) . '</span> / <span class="text-primary fw-bold">Bs.' . number_format(($sales * $bcvRate) ?? 0, 2) . '</span>',
         'icon'   => 'fas fa-coins me-1',
        
@@ -817,7 +740,8 @@ try {
 
 $headerConfig = [
     'title'  => 'Flujo de Caja',
-    'icon'   => 'fas fa-wallet',
+    'icon'   => 'bi bi-graph-up-arrow',
+    'colorico' => 'success',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [
@@ -854,6 +778,11 @@ try {
 } catch (Exception $e) {
     $sales = [];
 }
+// Variables para el layout
+$tenant_name = $_SESSION['tenant_name'] ?? 'Mi Negocio';
+$pageTitle = "Ventas - " . $tenant_name;
+$current_page = "Ventas";
+$pagina_actual = basename($_SERVER['PHP_SELF']);
 
 // Variables para las tarjetas de métricas
 $totalDiaUsd = 0;
@@ -889,12 +818,15 @@ foreach($sales as $s) {
 }
 
 $headerConfig = [
-    'title'  => 'Historial de Ventas',
-    'icon'   => 'fas fa-history',
-    'tenant' => $tenant_name,
-    'bcv'    => $bcvRate,
+    'title'     => 'Historial de Ventas',
+    'colorico'  => 'warning',
+    'icon'      => 'bi bi-receipt',
+    'tenant'    => $tenant_name,
+    'bcv'       => $bcvRate,
     
-    ]; ```
+    ];
+
+   ```
 
 ## Archivo: ./controllers/UserController.php
  ```php
@@ -938,7 +870,8 @@ $adminCount = count(array_filter($users, function($u) {
 
 $headerConfig = [
     'title'  => 'Gestión de Usuarios',
-    'icon'   => 'fas fa-users-cog',
+    'icon'   => 'bi bi-people-fill',
+    'colorico' => 'primary',
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate,
     'button' => [
@@ -1321,6 +1254,7 @@ function render_content_header($config)
 {
     // Valores por defecto para evitar errores
     $title       = $config['title'] ?? 'Panel';
+    $colorico    = $config['colorico'] ?? 'primary';
     $icon        = $config['icon'] ?? 'fas fa-home';
     $tenant      = $config['tenant'] ?? 'Sistema POS';
     $bcv         = $config['bcv'] ?? 0;
@@ -1335,7 +1269,7 @@ function render_content_header($config)
             <div class="row align-items-center">
                 <div class="col-sm-6">
                     <h3 class="mb-0">
-                        <i class="<?= htmlspecialchars($icon) ?> text-primary me-2"></i>
+                        <i class="<?= htmlspecialchars($icon) ?> text-<?= $colorico ?> me-2"></i>
                         <?= htmlspecialchars($title) ?>
                     </h3>
                     <small class="text-secondary"><?= htmlspecialchars($tenant) ?></small>
@@ -1368,7 +1302,51 @@ function render_content_header($config)
 <?php
     return ob_get_clean();
 }
- ```
+
+function render_modal($config, $bodyContent)
+{
+    // Valores por defecto
+    $id          = $config['id'] ?? 'defaultModal';
+    $formId      = $config['form_id'] ?? null; // Si tiene form_id, envuelve en <form>, si no, en <div>
+    $title       = $config['title'] ?? 'Modal';
+    $icon        = $config['icon'] ?? 'fas fa-info-circle';
+    $bg_color    = $config['bg_color'] ?? 'primary';
+    $submit_text = $config['submit_text'] ?? 'Guardar';
+    $submit_id   = $config['submit_id'] ?? 'btnSubmit';
+    $size        = $config['size'] ?? ''; // ej: 'modal-lg', 'modal-sm'
+    $custom_btn  = $config['custom_buttons'] ?? ''; // Para botones extra en el footer
+
+    ob_start();
+?>
+    <div class="modal fade" id="<?= htmlspecialchars($id) ?>" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered <?= htmlspecialchars($size) ?>">
+            <<?= $formId ? "form id=\"".htmlspecialchars($formId)."\"" : "div" ?> class="modal-content shadow">
+                <div class="modal-header bg-<?= htmlspecialchars($bg_color) ?> text-white">
+                    <h5 class="modal-title" id="<?= htmlspecialchars($id) ?>Title">
+                        <i class="<?= htmlspecialchars($icon) ?> me-2"></i> <?= htmlspecialchars($title) ?>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <div class="modal-body p-4">
+                    <?= $bodyContent ?>
+                </div>
+                
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <?= $custom_btn ?>
+                    <?php if ($formId): ?>
+                        <button type="submit" class="btn btn-<?= htmlspecialchars($bg_color) ?> px-4 fw-bold" id="<?= htmlspecialchars($submit_id) ?>">
+                            <?= htmlspecialchars($submit_text) ?>
+                        </button>
+                    <?php endif; ?>
+                </<?= $formId ? "form" : "div" ?>>
+            </div>
+        </div>
+    </div>
+<?php
+    return ob_get_clean();
+} ```
 
 ## Archivo: ./includes/License.php
  ```php
@@ -2988,7 +2966,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: admin.php?msg=created"); 
+                header("Location: ../admin.php?msg=created"); 
                 exit;
             } else {
                 throw new Exception("No se pudo crear el producto en la base de datos.");
@@ -3044,7 +3022,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: admin.php?msg=updated");
+                header("Location: ../admin.php?msg=updated");
                 exit;
             } else {
                 throw new Exception("Error al ejecutar la actualización.");
@@ -3065,7 +3043,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: admin.php?msg=deleted");
+                header("Location: ../admin.php?msg=deleted");
                 exit;
             } else {
                 throw new Exception("Error al intentar eliminar el producto.");
@@ -3078,7 +3056,7 @@ try {
     }
 } catch (Exception $e) {
     // Redirigir con el mensaje de error para que se muestre en el alert de Bootstrap
-    header("Location: admin.php?error=" . urlencode($e->getMessage()));
+    header("Location: ../admin.php?error=" . urlencode($e->getMessage()));
     exit;
 }
 ?> ```
@@ -3289,7 +3267,7 @@ include 'layouts/sidebar.php';
                                             <td class="ps-3">
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($p['image'])): ?>
-                                                        <img src="uploads/<?= htmlspecialchars($p['image']) ?>" class="rounded object-fit-contain me-3 border" style="width: 45px; height: 45px;" alt="img">
+                                                        <img src="<?= htmlspecialchars($p['image']) ?>" class="rounded object-fit-contain me-3 border" style="width: 45px; height: 45px;" alt="img">
                                                     <?php else: ?>
                                                         <div class="bg-secondary bg-opacity-25 rounded d-flex align-items-center justify-content-center me-3 border" style="width: 45px; height: 45px;">
                                                             <i class="fas fa-box text-secondary"></i>
@@ -3661,10 +3639,82 @@ include 'layouts/sidebar.php';
         </div>
     </div>
 </main>
+<div class="modal fade" id="modalPayment" tabindex="-1" >
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="formPayment" class="modal-content shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-money-bill-wave me-2"></i> Registrar Abono</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" name="action" value="add_payment">
+                <input type="hidden" name="credit_id" id="pay_credit_id">
+                
+                <div class="alert alert-info py-2">
+                    Cliente: <strong id="pay_customer_name"></strong><br>
+                    Deuda Actual: <strong class="text-danger" id="pay_balance_display"></strong>
+                </div>
 
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Monto a Abonar (USD) <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light fw-bold">$</span>
+                        <input type="number" step="0.01" name="amount_usd" id="pay_amount" class="form-control form-control-lg" required>
+                    </div>
+                    <small class="text-muted" id="pay_bs_conversion">Equivale a: Bs 0.00</small>
+                </div>
 
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Método de Pago</label>
+                    <select name="payment_method" class="form-select" required>
+                        <option value="efectivo_bs">Efectivo Bolívares</option>
+                        <option value="efectivo_usd">Efectivo Divisa</option>
+                        <option value="pago_movil">Pago Móvil</option>
+                        <option value="punto">Punto de Venta</option>
+                        <option value="transferencia">Transferencia</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success px-4" id="btnSubmitPayment">Confirmar Pago</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-<?php include 'layouts/footer.php'; ?><?php include 'layouts/modals/modals_credits.php'; ?> 
+<div class="modal fade" id="modalHistory" tabindex="-1" >
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-history me-2"></i> Historial de Pagos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <table class="table table-striped mb-0 text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Monto USD</th>
+                            <th>Monto BS</th>
+                            <th>Método</th>
+                            <th>Cajero</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        </tbody>
+                </table>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php 
+    include 'layouts/footer.php'; 
+    include 'layouts/modals/modals_credits.php';
+?> 
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
@@ -19456,7 +19506,8 @@ fieldset legend {
     height: 100%;
     object-fit: contain; /* Esto evita que la imagen se deforme */
     padding: 5px;
-} ```
+}
+ ```
 
 ## Archivo: ./public/customers.php
  ```php
@@ -19770,6 +19821,87 @@ if ($type == 'sales') {
 </body>
 </html> ```
 
+## Archivo: ./public/get_sale_details.php
+ ```php
+<?php
+require_once '../includes/Middleware.php';
+require_once '../config/db.php';
+require_once '../includes/Sale.php';
+
+// Verificación de sesión y seguridad
+if (session_status() === PHP_SESSION_NONE) session_start();
+Middleware::checkAuth();
+
+$db = (new Database())->getConnection();
+$tenant_id = $_SESSION['tenant_id'] ?? 1;
+$user_id = $_SESSION['user_id'] ?? 1;
+
+// Capturar y validar el ID de la venta
+$sale_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+if ($sale_id <= 0) {
+    echo '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>ID de venta no válido.</div>';
+    exit;
+}
+
+$saleObj = new Sale($db, $tenant_id, $user_id);
+
+try {
+    // Necesitamos que tu clase Sale tenga estos métodos (te dejo el ejemplo abajo)
+    $details = $saleObj->getSaleItems($sale_id); // Tu método original
+    $saleHeader = $saleObj->getSaleHeader($sale_id); // Tu método original
+} catch (Exception $e) {
+    echo '<div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i>Error al consultar los detalles de la base de datos.</div>';
+    exit;
+}
+
+if (empty($details)) {
+    echo '<div class="alert alert-info text-center py-4"><i class="fas fa-box-open fa-2x mb-2 d-block opacity-50"></i>No se encontraron productos registrados para esta venta.</div>';
+    exit;
+}
+?>
+
+<div class="table-responsive">
+    <table class="table table-sm table-bordered table-striped align-middle text-center mb-0">
+        <thead class="table-light">
+            <tr>
+                <th class="text-start">Producto</th>
+                <th>Cant.</th>
+                <th>Precio Unit. (USD)</th>
+                <th>Subtotal (USD)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($details as $d): ?>
+            <tr>
+                <td class="text-start fw-medium"><?= htmlspecialchars($d['product_name'] ?? 'Producto Desconocido') ?></td>
+                <td><span class="badge text-bg-secondary rounded-pill"><?= $d['quantity'] ?></span></td>
+
+                <td>$ <?= number_format($d['price_at_moment_usd'], 2) ?></td>
+    <td class="fw-bold">$ <?= number_format($d['price_at_moment_usd'] * $d['quantity'], 2) ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+        <?php if (!empty($saleHeader)): ?>
+        <tfoot class="table-light">
+            <tr>
+                <td colspan="3" class="text-end fw-bold">Total Pagado:</td>
+                <td class="fw-bold text-success fs-5">$ <?= number_format($saleHeader['total_amount_usd'] ?? 0, 2) ?></td>
+            </tr>
+        </tfoot>
+        <?php endif; ?>
+    </table>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mt-3 border-top pt-3">
+    <small class="text-muted">
+        <i class="fas fa-user-tag me-1"></i> Cajero: <?= htmlspecialchars($saleHeader['username'] ?? 'N/A') ?>
+    </small>
+    <button class="btn btn-sm btn-outline-primary" onclick="printTicket(<?= $sale_id ?>)">
+        <i class="fas fa-print me-1"></i> Imprimir Recibo
+    </button>
+</div> ```
+
 ## Archivo: ./public/js/admin.js
  ```javascript
 // Variables globales para las instancias de los modales
@@ -19812,7 +19944,7 @@ function viewProduct(p) {
     if (!modalViewInstance) return alert('El modal aún no se ha inicializado.');
 
     const imgHtml = p.image 
-        ? `<div class="text-center mb-3"><img src="uploads/${p.image}" class="img-fluid rounded border shadow-sm" style="max-height: 200px; object-fit: contain;"></div>` 
+        ? `<div class="text-center mb-3"><img src="${p.image}" class="img-fluid rounded border shadow-sm" style="max-height: 200px; object-fit: contain;"></div>` 
         : `<div class="text-center py-4 bg-secondary bg-opacity-10 border rounded mb-3"><i class="fas fa-box fa-4x text-secondary opacity-50"></i></div>`;
     
     const descHtml = p.description 
@@ -21890,7 +22022,7 @@ function renderProductsGrid(products) {
         const price_usd = parseFloat(p.price_base_usd) * (1 + (parseFloat(p.profit_margin) / 100));
         const price_bs = price_usd * bcvRate;
         const is_stock = p.stock > 0;
-        const img_url = p.image ? `uploads/${escapeHtml(p.image)}` : null;
+        const img_url = p.image ? `${escapeHtml(p.image)}` : null;
         const desc = p.description ? escapeHtml(p.description) : 'Sin descripción';
         const sku = p.sku ? escapeHtml(p.sku) : 'N/A';
         const name = escapeHtml(p.name);
@@ -22017,7 +22149,7 @@ function loadSaleDetails(id) {
                               </div>`;
 
     // Reemplaza 'get_sale_details.php' con la ruta real de tu endpoint
-    fetch(`controllers/get_sale_details.php?id=${id}`)
+    fetch(`get_sale_details.php?id=${id}`)
         .then(response => response.text()) // o .json() si devuelves JSON y construyes el HTML aquí
         .then(data => {
             modalContent.innerHTML = data;
@@ -22186,6 +22318,44 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
                 else alert(res.message);
             });
         }
+    }
+    // Función para Eliminar con SweetAlert2
+    function deleteUser2(id, username) {
+      Swal.fire({
+        title: "¿Eliminar Usuario?",
+        html: `Estás a punto de eliminar a <strong>${username}</strong>.<br>Esta acción no se puede deshacer.`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc3545",
+        cancelButtonColor: "#232425",
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          const formData = new FormData();
+          formData.append("action", "delete");
+          formData.append("id", id);
+
+          fetch("actions/actions_user.php", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((res) => {
+              if (res.status) {
+                Swal.fire("¡Eliminado!", res.message, "success").then(() =>
+                  location.reload(),
+                );
+              } else {
+                Swal.fire("Error", res.message, "error");
+              }
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              Swal.fire("Error", "Problema al intentar eliminar.", "error");
+            });
+        }
+      });
     }
 
     // Buscador en tiempo real
@@ -22708,6 +22878,86 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 </div>
  ```
 
+## Archivo: ./public/layouts/modals/modals_credits.php
+ ```php
+
+<div class="modal fade" id="modalPayment" tabindex="-1" >
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="formPayment" class="modal-content shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-money-bill-wave me-2"></i> Registrar Abono</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" name="action" value="add_payment">
+                <input type="hidden" name="credit_id" id="pay_credit_id">
+                
+                <div class="alert alert-info py-2">
+                    Cliente: <strong id="pay_customer_name"></strong><br>
+                    Deuda Actual: <strong class="text-danger" id="pay_balance_display"></strong>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Monto a Abonar (USD) <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light fw-bold">$</span>
+                        <input type="number" step="0.01" name="amount_usd" id="pay_amount" class="form-control form-control-lg" required>
+                    </div>
+                    <small class="text-muted" id="pay_bs_conversion">Equivale a: Bs 0.00</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Método de Pago</label>
+                    <select name="payment_method" class="form-select" required>
+                        <option value="efectivo_bs">Efectivo Bolívares</option>
+                        <option value="efectivo_usd">Efectivo Divisa</option>
+                        <option value="pago_movil">Pago Móvil</option>
+                        <option value="punto">Punto de Venta</option>
+                        <option value="transferencia">Transferencia</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success px-4" id="btnSubmitPayment">Confirmar Pago</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="modalHistory" tabindex="-1" >
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-history me-2"></i> Historial de Pagos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <table class="table table-striped mb-0 text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Monto USD</th>
+                            <th>Monto BS</th>
+                            <th>Método</th>
+                            <th>Cajero</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        </tbody>
+                </table>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div> ```
+
+## Archivo: ./public/layouts/modals/modals_customer.php
+ ```php
+ ```
+
 ## Archivo: ./public/layouts/modals/modals_pos.php
  ```php
 <div class="modal fade" id="modalBCV" tabindex="-1">
@@ -22922,6 +23172,45 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
     </div>
 </div> ```
 
+## Archivo: ./public/layouts/modals/modals_sales_history.php
+ ```php
+<div class="modal fade" id="modalView" tabindex="-1" aria-labelledby="modalViewLabel">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title" id="modalViewLabel"><i class="fas fa-list text-primary me-2"></i>Detalles de la Venta <span id="modalTicketNumber" class="fw-bold"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalViewContent">
+                <div class="text-center py-4 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div> Cargando detalles...
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="modalConfirmAnular" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i> Confirmar Anulación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="fs-5 mb-0">¿Estás completamente seguro de que deseas <strong>ANULAR</strong> la venta <span id="spanTicketAnular" class="text-danger fw-bold"></span>?</p>
+                <p class="text-muted small mt-2">Esta acción no se puede deshacer y revertirá el stock/totales.</p>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarAnular">Sí, Anular Venta</button>
+            </div>
+        </div>
+    </div>
+</div> ```
+
 ## Archivo: ./public/layouts/modals/modals_users.php
  ```php
 <div class="modal fade" id="modalUser" tabindex="-1" >
@@ -22972,119 +23261,6 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
         </div>
     </div>
 </div> ```
-
-## Archivo: ./public/layouts/modals/modal_credits.php
- ```php
-<div class="modal fade" id="modalPayment" tabindex="-1" >
-    <div class="modal-dialog modal-dialog-centered">
-        <form id="formPayment" class="modal-content shadow">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title"><i class="fas fa-money-bill-wave me-2"></i> Registrar Abono</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4">
-                <input type="hidden" name="action" value="add_payment">
-                <input type="hidden" name="credit_id" id="pay_credit_id">
-                
-                <div class="alert alert-info py-2">
-                    Cliente: <strong id="pay_customer_name"></strong><br>
-                    Deuda Actual: <strong class="text-danger" id="pay_balance_display"></strong>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Monto a Abonar (USD) <span class="text-danger">*</span></label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light fw-bold">$</span>
-                        <input type="number" step="0.01" name="amount_usd" id="pay_amount" class="form-control form-control-lg" required>
-                    </div>
-                    <small class="text-muted" id="pay_bs_conversion">Equivale a: Bs 0.00</small>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Método de Pago</label>
-                    <select name="payment_method" class="form-select" required>
-                        <option value="efectivo_bs">Efectivo Bolívares</option>
-                        <option value="efectivo_usd">Efectivo Divisa</option>
-                        <option value="pago_movil">Pago Móvil</option>
-                        <option value="punto">Punto de Venta</option>
-                        <option value="transferencia">Transferencia</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-success px-4" id="btnSubmitPayment">Confirmar Pago</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="modal fade" id="modalHistory" tabindex="-1" >
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content shadow">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title"><i class="fas fa-history me-2"></i> Historial de Pagos</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-0">
-                <table class="table table-striped mb-0 text-center">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Monto USD</th>
-                            <th>Monto BS</th>
-                            <th>Método</th>
-                            <th>Cajero</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyTableBody">
-                        </tbody>
-                </table>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div> ```
-
-## Archivo: ./public/layouts/modals/modal_sales_history.php
- ```php
-<div class="modal fade" id="modalView" tabindex="-1" aria-labelledby="modalViewLabel" >
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-light">
-                    <h5 class="modal-title" id="modalViewLabel"><i class="fas fa-list text-primary me-2"></i>Detalles de la Venta <span id="modalTicketNumber" class="fw-bold"></span></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="modalViewContent">
-                    <div class="text-center py-4 text-muted">
-                        <div class="spinner-border spinner-border-sm me-2" role="status"></div> Cargando detalles...
-                    </div>
-                </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal fade" id="modalConfirmAnular" tabindex="-1" >
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i> Confirmar Anulación</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center py-4">
-                <p class="fs-5 mb-0">¿Estás completamente seguro de que deseas <strong>ANULAR</strong> la venta <span id="spanTicketAnular" class="text-danger fw-bold"></span>?</p>
-                <p class="text-muted small mt-2">Esta acción no se puede deshacer y revertirá el stock/totales.</p>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="btnConfirmarAnular">Sí, Anular Venta</button>
-            </div>
-        </div>
-    </div> ```
 
 ## Archivo: ./public/layouts/navbar.php
  ```php
@@ -23401,174 +23577,172 @@ $auth->logout();
 require_once '../controllers/PosController.php';
 include 'layouts/head.php';
 include 'layouts/navbar.php';
-include 'layouts/sidebar.php'; 
+include 'layouts/sidebar.php';
 ?>
-    <main class="app-main">
-        <?= render_content_header($headerConfig) ?>
-        <div class="app-content">
-            <div class="container-fluid">
-                <div class="row">
-                    <div class="col-lg-8">
-                        <div class="card mb-3 shadow-sm">
-                            <div class="card-body p-2">
-                                <div class="input-group input-group-lg">
-                                    <span class="input-group-text bg-light border-0"><i class="fas fa-search text-muted"></i></span>
-                                    <input type="text" id="searchInput" class="form-control border-0 bg-light" placeholder="Buscar producto (Presiona F3)...">
-                                </div>
+<main class="app-main">
+    <?= render_content_header($headerConfig) ?>
+    <div class="app-content">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card mb-3 shadow-sm">
+                        <div class="card-body p-2">
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-light border-0"><i class="fas fa-search text-muted"></i></span>
+                                <input type="text" id="searchInput" class="form-control border-0 bg-light" placeholder="Buscar producto (Presiona F3)...">
                             </div>
                         </div>
+                    </div>
 
-                        <div class="row g-3" id="productsGrid">
-                            <?php foreach($products as $p): 
-                                $price_usd = $p['price_base_usd'] * (1 + ($p['profit_margin'] / 100));
-                                $price_bs  = $price_usd * $bcvRate;
-                                $is_stock  = $p['stock'] > 0;
-                                $has_image = !empty($p['image']); 
-                                $img_url = $has_image ? htmlspecialchars($p['image']) : '';
-                                $desc = !empty($p['description']) ? htmlspecialchars($p['description']) : 'Sin descripción';
-                                $sku = !empty($p['sku']) ? htmlspecialchars($p['sku']) : 'N/A';
-                                $categoria = !empty($p['category']) ? htmlspecialchars($p['category']) : 'N/A';
-                                $brand = !empty($p['brand']) ? htmlspecialchars($p['brand']) : 'N/A';
-                            ?>
-                            <div class="col-6 col-md-4 col-xl-3 product-item" 
-                                 data-name="<?= htmlspecialchars(strtolower($p['name'])) ?>" 
-                                 data-desc="<?= htmlspecialchars(strtolower($desc)) ?>" 
-                                 data-sku="<?= htmlspecialchars(strtolower($sku)) ?>" 
-                                 data-category="<?= htmlspecialchars(strtolower($categoria)) ?>" 
-                                 data-brand="<?= htmlspecialchars(strtolower($brand)) ?>" 
-                                 data-price="<?= $price_usd ?>">
-                            <div class="card h-100 shadow-sm border" style="cursor: pointer; transition: transform 0.2s;">
-                                <div onclick='addToCart(<?= $p['id'] ?>, <?= json_encode($p['name']) ?>, <?= $price_usd ?>, <?= $p['stock'] ?>)' class="d-flex flex-column h-100">
-                                    <div class="text-center bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center" style="height: 120px; border-bottom: 1px solid rgba(0,0,0,0.1);">
-                                        <?php if($has_image): ?>
-                                            <img src="uploads/<?= $img_url ?>" class="img-fluid" style="max-height: 100%; object-fit: contain;" alt="<?= htmlspecialchars($p['name']) ?>">
-                                        <?php else: ?>
-                                            <i class="fas fa-box-open fa-3x text-secondary opacity-50"></i>
-                                        <?php endif; ?>
-                                    </div>
-
-                                    <div class="card-body p-2 d-flex flex-column text-center">
-                                        <h6 class="card-title text-truncate fw-bold mb-1 w-100" title="<?= htmlspecialchars($p['name']) ?>">
-                                            <?= htmlspecialchars($p['name']) ?>
-                                        </h6>
-                                        <small class="text-muted text-truncate w-100 mb-1"><?= $desc ?></small>
-            
-                                        <div class="d-flex flex-wrap justify-content-center gap-1 mb-2" style="font-size: 0.70rem;">
-                                            <span class="badge bg-light text-secondary border" title="SKU"><i class="fas fa-barcode me-1"></i><?= $sku ?></span>
-                                            <span class="badge bg-light text-secondary border" title="Categoría"><i class="fas fa-tags me-1"></i><?= $categoria ?></span>
-                                            <span class="badge bg-light text-secondary border" title="Marca"><i class="fas fa-industry me-1"></i><?= $brand ?></span>
-                                        </div>
-                                        <div class="mt-auto">
-                                            <div class="text-success fw-bold fs-5">$<?= number_format($price_usd, 2) ?></div>
-                                            <div class="text-muted small mb-2">Bs <?= number_format($price_bs, 2) ?></div>
-                                            
-                                            <?php if($is_stock): ?>
-                                                <span class="badge text-bg-info rounded-pill">Stock: <?= $p['stock'] ?></span>
+                    <div class="row g-3" id="productsGrid">
+                        <?php foreach ($products as $p):
+                            $price_usd = $p['price_base_usd'] * (1 + ($p['profit_margin'] / 100));
+                            $price_bs  = $price_usd * $bcvRate;
+                            $is_stock  = $p['stock'] > 0;
+                            $has_image = !empty($p['image']);
+                            $img_url = $has_image ? htmlspecialchars($p['image']) : '';
+                            $desc = !empty($p['description']) ? htmlspecialchars($p['description']) : 'Sin descripción';
+                            $sku = !empty($p['sku']) ? htmlspecialchars($p['sku']) : 'N/A';
+                            $categoria = !empty($p['category']) ? htmlspecialchars($p['category']) : 'N/A';
+                            $brand = !empty($p['brand']) ? htmlspecialchars($p['brand']) : 'N/A';
+                        ?>
+                            <div class="col-6 col-md-4 col-xl-3 product-item"
+                                data-name="<?= htmlspecialchars(strtolower($p['name'])) ?>"
+                                data-desc="<?= htmlspecialchars(strtolower($desc)) ?>"
+                                data-sku="<?= htmlspecialchars(strtolower($sku)) ?>"
+                                data-category="<?= htmlspecialchars(strtolower($categoria)) ?>"
+                                data-brand="<?= htmlspecialchars(strtolower($brand)) ?>"
+                                data-price="<?= $price_usd ?>">
+                                <div class="card h-100 shadow-sm border" style="cursor: pointer; transition: transform 0.2s;">
+                                    <div onclick='addToCart(<?= $p['id'] ?>, <?= json_encode($p['name']) ?>, <?= $price_usd ?>, <?= $p['stock'] ?>)' class="d-flex flex-column h-100">
+                                        <div class="text-center bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center" style="height: 120px; border-bottom: 1px solid rgba(0,0,0,0.1);">
+                                            <?php if ($has_image): ?>
+                                                <img src="<?= $img_url ?>" class="img-fluid" style="max-height: 100%; object-fit: contain;" alt="<?= htmlspecialchars($p['name']) ?>">
                                             <?php else: ?>
-                                                <span class="badge text-bg-danger rounded-pill">Agotado</span>
+                                                <i class="fas fa-box-open fa-3x text-secondary opacity-50"></i>
                                             <?php endif; ?>
                                         </div>
+
+                                        <div class="card-body p-2 d-flex flex-column text-center">
+                                            <h6 class="card-title text-truncate fw-bold mb-1 w-100" title="<?= htmlspecialchars($p['name']) ?>">
+                                                <?= htmlspecialchars($p['name']) ?>
+                                            </h6>
+                                            <small class="text-muted text-truncate w-100 mb-1"><?= $desc ?></small>
+
+                                            <div class="d-flex flex-wrap justify-content-center gap-1 mb-2" style="font-size: 0.70rem;">
+                                                <span class="badge bg-light text-secondary border" title="SKU"><i class="fas fa-barcode me-1"></i><?= $sku ?></span>
+                                                <span class="badge bg-light text-secondary border" title="Categoría"><i class="fas fa-tags me-1"></i><?= $categoria ?></span>
+                                                <span class="badge bg-light text-secondary border" title="Marca"><i class="fas fa-industry me-1"></i><?= $brand ?></span>
+                                            </div>
+                                            <div class="mt-auto">
+                                                <div class="text-success fw-bold fs-5">$<?= number_format($price_usd, 2) ?></div>
+                                                <div class="text-muted small mb-2">Bs <?= number_format($price_bs, 2) ?></div>
+
+                                                <?php if ($is_stock): ?>
+                                                    <span class="badge text-bg-info rounded-pill">Stock: <?= $p['stock'] ?></span>
+                                                <?php else: ?>
+                                                    <span class="badge text-bg-danger rounded-pill">Agotado</span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
+                        <?php endforeach; ?>
                     </div>
+                </div>
 
-                    <div class="col-lg-4 mt-4 mt-lg-0">
-                        <div class="card card-outline card-success shadow-sm sticky-top" style="top: 70px; z-index: 1000;" id="posPanel">
-                            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center py-2">
-                                <h5 class="card-title mb-0 fw-bold"><i class="fas fa-shopping-cart me-2"></i>Ticket Actual</h5>
-                                <span class="badge bg-light text-success fs-6 rounded-pill" id="itemCount">0</span>
-                            </div>
+                <div class="col-lg-4 mt-4 mt-lg-0">
+                    <div class="card card-outline card-success shadow-sm sticky-top" style="top: 70px; z-index: 1000;" id="posPanel">
+                        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center py-2">
+                            <h5 class="card-title mb-0 fw-bold"><i class="fas fa-shopping-cart me-2"></i>Ticket Actual</h5>
+                            <span class="badge bg-light text-success fs-6 rounded-pill" id="itemCount">0</span>
+                        </div>
 
-                            <div class="card-body p-0">
-                                <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                                    <table class="table table-hover table-striped align-middle mb-0 small">
-                                        <thead class="table sticky-top">
-                                            <tr>
-                                                <th width="15%" class="text-center">Cant</th>
-                                                <th>Item</th>
-                                                <th class="text-end">Total</th>
-                                                <th width="10%"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="cartTableBody">
-                                            <tr>
-                                                <td colspan="4" class="text-center py-4 text-muted">
-                                                    <i class="fas fa-cart-arrow-down fa-2x mb-2 opacity-50"></i><br>El carrito está vacío
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            <div class="card-footer bg-light">
-                                <div class="d-flex justify-content-between mb-1 text-secondary">
-                                    <span>Subtotal USD:</span>
-                                    <span class="fw-bold text-dark" id="totalUsdDisplay">$0.00</span>
-                                </div>
-                                <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
-                                    <span class="h5 text-success mb-0">Total BS:</span>
-                                    <span class="h5 text-success fw-bold mb-0" id="totalBsDisplay">Bs 0.00</span>
-                                </div>
-
-                                <label form="paymentMethod" class="small fw-bold text-secondary mb-1">Método de Pago</label>
-                                <select class="form-select mb-3 border-success" id="paymentMethod">
-                                    <option value="efectivo_bs"><i class="fas fa-money-bill-wave"></i>Efectivo Bolívares</option>
-                                    <option value="efectivo_usd"><i class="fas fa-dollar-sign"></i>Efectivo Divisa</option>
-                                    <option value="pago_movil"><i class="fas fa-mobile-alt"></i>Pago Móvil</option>
-                                    <option value="punto"><i class="fas fa-credit-card"></i>Punto de Venta</option>
-                                    <option value="credito"><i class="fas fa-file-invoice-dollar"></i>Crédito (Por Cobrar)</option>
-                                </select>
-
-                                <div id="creditData" style="display: none;" class="mb-3 p-3 bg-warning bg-opacity-10 border border-warning rounded">
-                                    <label form="selectedCustomerDisplay" class="small fw-bold text-dark">Cliente <span class="text-danger">*</span></label>
-                                    <input type="hidden" id="selectedCustomerId" name="customer_id" value="">
-                                    <div class="input-group mb-2">
-                                        <input type="text" id="selectedCustomerDisplay" class="form-control form-control-sm border-warning bg-white" placeholder="Ningún cliente..." readonly>
-                                        <button class="btn btn-warning btn-sm fw-bold text-dark" type="button" data-bs-toggle="modal" data-bs-target="#modalCustomer">
-                                            <i class="fas fa-search me-1"></i> Buscar
-                                        </button>
-                                    </div>
-                                    <label form="creditDueDate" class="small fw-bold text-dark">Fecha límite de pago</label>
-                                    <input type="date" id="creditDueDate" name="due_date" class="form-control form-control-sm border-warning">
-                                </div>
-
-                                <div class="row g-2">
-                                    <div class="col-9">
-                                        <button class="btn btn-outline-success w-100 fw-bold btn-lg shadow-sm" onclick="initiateCheckout()" id="btnConfirmSale">
-                                            <i class="fas fa-check-circle me-1"></i> COBRAR
-                                        </button>
-                                    </div>
-                                    <div class="col-3">
-                                        <button class="btn btn-outline-danger w-100 btn-lg shadow-sm" onclick="confirmClearCart()" title="Limpiar carrito">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </div>
-                                </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                                <table class="table table-hover table-striped align-middle mb-0 small">
+                                    <thead class="table sticky-top">
+                                        <tr>
+                                            <th width="15%" class="text-center">Cant</th>
+                                            <th>Item</th>
+                                            <th class="text-end">Total</th>
+                                            <th width="10%"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cartTableBody">
+                                        <tr>
+                                            <td colspan="4" class="text-center py-4 text-muted">
+                                                <i class="fas fa-cart-arrow-down fa-2x mb-2 opacity-50"></i><br>El carrito está vacío
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
+
+                        <div class="card-footer bg-light">
+                            <div class="d-flex justify-content-between mb-1 text-secondary">
+                                <span>Subtotal USD:</span>
+                                <span class="fw-bold text-dark" id="totalUsdDisplay">$0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
+                                <span class="h5 text-success mb-0">Total BS:</span>
+                                <span class="h5 text-success fw-bold mb-0" id="totalBsDisplay">Bs 0.00</span>
+                            </div>
+
+                            <label form="paymentMethod" class="small fw-bold text-secondary mb-1">Método de Pago</label>
+                            <select class="form-select mb-3 border-success" id="paymentMethod">
+                                <option value="efectivo_bs"><i class="fas fa-money-bill-wave"></i>Efectivo Bolívares</option>
+                                <option value="efectivo_usd"><i class="fas fa-dollar-sign"></i>Efectivo Divisa</option>
+                                <option value="pago_movil"><i class="fas fa-mobile-alt"></i>Pago Móvil</option>
+                                <option value="punto"><i class="fas fa-credit-card"></i>Punto de Venta</option>
+                                <option value="credito"><i class="fas fa-file-invoice-dollar"></i>Crédito (Por Cobrar)</option>
+                            </select>
+
+                            <div id="creditData" style="display: none;" class="mb-3 p-3 bg-warning bg-opacity-10 border border-warning rounded">
+                                <label form="selectedCustomerDisplay" class="small fw-bold text-dark">Cliente <span class="text-danger">*</span></label>
+                                <input type="hidden" id="selectedCustomerId" name="customer_id" value="">
+                                <div class="input-group mb-2">
+                                    <input type="text" id="selectedCustomerDisplay" class="form-control form-control-sm border-warning bg-white" placeholder="Ningún cliente..." readonly>
+                                    <button class="btn btn-warning btn-sm fw-bold text-dark" type="button" data-bs-toggle="modal" data-bs-target="#modalCustomer">
+                                        <i class="fas fa-search me-1"></i> Buscar
+                                    </button>
+                                </div>
+                                <label form="creditDueDate" class="small fw-bold text-dark">Fecha límite de pago</label>
+                                <input type="date" id="creditDueDate" name="due_date" class="form-control form-control-sm border-warning">
+                            </div>
+
+                            <div class="row g-2">
+                                <div class="col-9">
+                                    <button class="btn btn-outline-success w-100 fw-bold btn-lg shadow-sm" onclick="initiateCheckout()" id="btnConfirmSale">
+                                        <i class="fas fa-check-circle me-1"></i> COBRAR
+                                    </button>
+                                </div>
+                                <div class="col-3">
+                                    <button class="btn btn-outline-danger w-100 btn-lg shadow-sm" onclick="confirmClearCart()" title="Limpiar carrito">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div> 
+                </div>
             </div>
         </div>
-    </main>
-
-
-
-    <?php
-    include 'layouts/footer.php'; 
-    include 'layouts/modals/modals_pos.php';
-    ?>
+    </div>
+</main>
+<?php
+include 'layouts/footer.php';
+include 'layouts/modals/modals_pos.php';
+?>
 <script>
-        window.APP_BCV_RATE = <?= $bcvRate ?>;
+    window.APP_BCV_RATE = <?= $bcvRate ?>;
 </script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="js/pos.js"></script>
 </body>
+
 </html> ```
 
 ## Archivo: ./public/process_sale.php
@@ -23885,14 +24059,15 @@ include 'layouts/sidebar.php';
                                             </td>
 
                                             <td>
-                                                <span class="fw-medium text-dark">
+                                                <span class="fw-medium tex-primary">
                                                     <i class="fas fa-user-circle text-muted me-1"></i>
-                                                    <?= htmlspecialchars($s['customer_name'] ?? 'Mostrador') ?>
+                                                    <?= htmlspecialchars($s['customer_name'] ?? 'Contado') ?>
                                                 </span>
                                             </td>
 
                                             <td>
-                                                <span class="badge bg-light border text-dark text-capitalize">
+                                                
+                                                <span class="badge bg-light border text-warning text-capitalize">
                                                     <?= str_replace('_', ' ', htmlspecialchars($s['payment_method'])) ?>
                                                 </span>
                                             </td>
@@ -23937,46 +24112,10 @@ include 'layouts/sidebar.php';
         </div>
     </div>
 </main>
-
-<div class="modal fade" id="modalView" tabindex="-1" aria-labelledby="modalViewLabel">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-light">
-                <h5 class="modal-title" id="modalViewLabel"><i class="fas fa-list text-primary me-2"></i>Detalles de la Venta <span id="modalTicketNumber" class="fw-bold"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="modalViewContent">
-                <div class="text-center py-4 text-muted">
-                    <div class="spinner-border spinner-border-sm me-2" role="status"></div> Cargando detalles...
-                </div>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalConfirmAnular" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i> Confirmar Anulación</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center py-4">
-                <p class="fs-5 mb-0">¿Estás completamente seguro de que deseas <strong>ANULAR</strong> la venta <span id="spanTicketAnular" class="text-danger fw-bold"></span>?</p>
-                <p class="text-muted small mt-2">Esta acción no se puede deshacer y revertirá el stock/totales.</p>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="btnConfirmarAnular">Sí, Anular Venta</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<?php include 'layouts/footer.php'; ?>
+<?php
+    include 'layouts/footer.php';
+    include 'layouts/modals/modals_sales_history.php';
+?>
 <script src="js/sales_history.js"></script>
 </body>
 
@@ -24153,65 +24292,65 @@ if (!$sale) {
 require_once '../controllers/UserController.php';
 include 'layouts/head.php';
 include 'layouts/navbar.php';
-include 'layouts/sidebar.php'; 
+include 'layouts/sidebar.php';
 ?>
-    <main class="app-main">
-        <?= render_content_header($headerConfig) ?>
-        <div class="app-content">
-            <div class="container-fluid">
-                
-                <div class="row mb-4">
-                    <div class="col-12 col-sm-6 col-md-3">
-                        <div class="info-box shadow-sm">
-                            <span class="info-box-icon text-bg-primary shadow-sm">
-                                <i class="fas fa-users"></i>
-                            </span>
-                            <div class="info-box-content">
-                                <span class="info-box-text text-secondary small">Total Usuarios</span>
-                                <span class="info-box-number h5 mb-0"><?= $totalUsers ?></span>
-                            </div>
+<main class="app-main">
+    <?= render_content_header($headerConfig) ?>
+    <div class="app-content">
+        <div class="container-fluid">
+
+            <div class="row mb-4">
+                <div class="col-12 col-sm-6 col-md-3">
+                    <div class="info-box shadow-sm">
+                        <span class="info-box-icon text-bg-primary shadow-sm">
+                            <i class="fas fa-users"></i>
+                        </span>
+                        <div class="info-box-content">
+                            <span class="info-box-text text-secondary small">Total Usuarios</span>
+                            <span class="info-box-number h5 mb-0"><?= $totalUsers ?></span>
                         </div>
                     </div>
-                    <div class="col-12 col-sm-6 col-md-3">
-                        <div class="info-box shadow-sm">
-                            <span class="info-box-icon text-bg-warning shadow-sm">
-                                <i class="fas fa-user-shield"></i>
-                            </span>
-                            <div class="info-box-content">
-                                <span class="info-box-text text-secondary small">Administradores</span>
-                                <span class="info-box-number h5 mb-0"><?= $adminCount ?></span>
+                </div>
+                <div class="col-12 col-sm-6 col-md-3">
+                    <div class="info-box shadow-sm">
+                        <span class="info-box-icon text-bg-warning shadow-sm">
+                            <i class="fas fa-user-shield"></i>
+                        </span>
+                        <div class="info-box-content">
+                            <span class="info-box-text text-secondary small">Administradores</span>
+                            <span class="info-box-number h5 mb-0"><?= $adminCount ?></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-outline card-primary shadow-sm">
+                <div class="card-header border-0 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="card-title fw-bold"><i class="fas fa-list me-2"></i> Lista de Acceso</h3>
+                        <div class="card-tools">
+                            <div class="input-group input-group-sm" style="width: 250px;">
+                                <input type="text" id="userSearch" class="form-control" placeholder="Buscar usuario...">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <div class="card card-outline card-primary shadow-sm">
-                    <div class="card-header border-0 p-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h3 class="card-title fw-bold"><i class="fas fa-list me-2"></i> Lista de Acceso</h3>
-                            <div class="card-tools">
-                                <div class="input-group input-group-sm" style="width: 250px;">
-                                    <input type="text" id="userSearch" class="form-control" placeholder="Buscar usuario...">
-                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="bg-dark text-secondary small text-uppercase">
-                                    <tr>
-                                        <th class="ps-4">Usuario</th>
-                                        <th>Nombre Completo</th>
-                                        <th>Rol</th>
-                                        <th>Estado</th>
-                                        <th class="text-end pe-4">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="userTableBody">
-                                    <?php if(!empty($users)): ?>
-                                        <?php foreach($users as $u): ?>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-dark text-secondary small text-uppercase">
+                                <tr>
+                                    <th class="ps-4">Usuario</th>
+                                    <th>Nombre Completo</th>
+                                    <th>Rol</th>
+                                    <th>Estado</th>
+                                    <th class="text-end pe-4">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userTableBody">
+                                <?php if (!empty($users)): ?>
+                                    <?php foreach ($users as $u): ?>
                                         <tr>
                                             <td class="ps-4">
                                                 <div class="d-flex align-items-center">
@@ -24223,7 +24362,7 @@ include 'layouts/sidebar.php';
                                             </td>
                                             <td><?= htmlspecialchars($u['full_name'] ?? 'N/A') ?></td>
                                             <td>
-                                                <?php if($u['role'] == 'admin'): ?>
+                                                <?php if ($u['role'] == 'admin'): ?>
                                                     <span class="badge text-bg-warning"><i class="fas fa-shield-alt me-1"></i> Admin</span>
                                                 <?php else: ?>
                                                     <span class="badge text-bg-info"><i class="fas fa-user me-1"></i> Vendedor</span>
@@ -24239,32 +24378,37 @@ include 'layouts/sidebar.php';
                                                 <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(<?= $u['id'] ?>)" title="Eliminar">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteUser2(<?= $u['id'] ?>, '<?= addslashes(htmlspecialchars($u['username'])) ?>')" title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
                                             </td>
                                         </tr>
-                                        <?php endforeach; ?>
-                                    <?php else: ?>
-                                        <tr>
-                                            <td colspan="5" class="text-center py-5 text-muted">
-                                                <i class="fas fa-users fa-3x mb-3 opacity-25"></i>
-                                                <p>No se encontraron usuarios registrados.</p>
-                                            </td>
-                                        </tr>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="5" class="text-center py-5 text-muted">
+                                            <i class="fas fa-users fa-3x mb-3 opacity-25"></i>
+                                            <p>No se encontraron usuarios registrados.</p>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-
             </div>
+
         </div>
-    </main>
-    <?php
-    include 'layouts/footer.php'; 
-    include 'layouts/modals/modals_users.php';
-    ?>
+    </div>
+</main>
+<?php
+include 'layouts/footer.php';
+include 'layouts/modals/modals_users.php';
+?>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="js/users.js"></script>
 </body>
+
 </html> ```
 
 ## Archivo: ./root/actions.php

@@ -51,3 +51,48 @@ function render_content_header($config)
 <?php
     return ob_get_clean();
 }
+
+function render_modal($config, $bodyContent)
+{
+    // Valores por defecto
+    $id          = $config['id'] ?? 'defaultModal';
+    $formId      = $config['form_id'] ?? null; // Si tiene form_id, envuelve en <form>, si no, en <div>
+    $title       = $config['title'] ?? 'Modal';
+    $icon        = $config['icon'] ?? 'fas fa-info-circle';
+    $bg_color    = $config['bg_color'] ?? 'primary';
+    $submit_text = $config['submit_text'] ?? 'Guardar';
+    $submit_id   = $config['submit_id'] ?? 'btnSubmit';
+    $size        = $config['size'] ?? ''; // ej: 'modal-lg', 'modal-sm'
+    $custom_btn  = $config['custom_buttons'] ?? ''; // Para botones extra en el footer
+
+    ob_start();
+?>
+    <div class="modal fade" id="<?= htmlspecialchars($id) ?>" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered <?= htmlspecialchars($size) ?>">
+            <<?= $formId ? "form id=\"".htmlspecialchars($formId)."\"" : "div" ?> class="modal-content shadow">
+                <div class="modal-header bg-<?= htmlspecialchars($bg_color) ?> text-white">
+                    <h5 class="modal-title" id="<?= htmlspecialchars($id) ?>Title">
+                        <i class="<?= htmlspecialchars($icon) ?> me-2"></i> <?= htmlspecialchars($title) ?>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <div class="modal-body p-4">
+                    <?= $bodyContent ?>
+                </div>
+                
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <?= $custom_btn ?>
+                    <?php if ($formId): ?>
+                        <button type="submit" class="btn btn-<?= htmlspecialchars($bg_color) ?> px-4 fw-bold" id="<?= htmlspecialchars($submit_id) ?>">
+                            <?= htmlspecialchars($submit_text) ?>
+                        </button>
+                    <?php endif; ?>
+                </<?= $formId ? "form" : "div" ?>>
+            </div>
+        </div>
+    </div>
+<?php
+    return ob_get_clean();
+}

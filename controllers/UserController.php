@@ -1,4 +1,6 @@
 <?php
+// Archivo: ./controllers/UserController.php
+
 require_once '../config/db.php';
 require_once '../includes/Middleware.php';
 require_once '../includes/ExchangeRate.php';

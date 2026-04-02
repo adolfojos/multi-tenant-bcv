@@ -1,4 +1,4 @@
-
+// Archivo: ./public/js/users.js
     const modalUser = new bootstrap.Modal(document.getElementById('modalUser'));
 
     function resetForm() {
@@ -27,48 +27,90 @@
         modalUser.show();
     }
 
-    function saveUser(e) {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+function saveUser(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const btn = e.target.querySelector('button[type="submit"]');
+    
+    // Feedback visual en el botón
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando...';
 
-        fetch('actions/actions_user.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(r => r.json())
-        .then(res => {
-            if(res.status) {
-                location.reload();
-            } else {
-                alert("Error: " + res.message);
-                btn.disabled = false;
-                btn.innerHTML = 'Guardar Usuario';
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert("Error de conexión");
+    fetch('actions/actions_user.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        if(res.status) {
+            // Mensaje de éxito con SweetAlert2
+            Swal.fire({
+                title: "¡Logrado!",
+                text: res.message || "Operación realizada con éxito",
+                icon: "success",
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                location.reload(); // Recargamos después de que el usuario vea el mensaje
+            });
+        } else {
+            // Mensaje de error con SweetAlert2
+            Swal.fire({
+                title: "Error",
+                text: res.message || "Hubo un problema al guardar",
+                icon: "error",
+                confirmButtonColor: "#dc3545"
+            });
             btn.disabled = false;
-            btn.innerHTML = 'Guardar Usuario';
-        });
-    }
+            btn.innerHTML = originalText;
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        Swal.fire("Error crítico", "No se pudo conectar con el servidor", "error");
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
 
-    function deleteUser(id) {
-        if(confirm('¿Estás seguro de eliminar este usuario? Perderá el acceso al sistema inmediatamente.')) {
-            const formData = new FormData();
-            formData.append('action', 'delete');
-            formData.append('id', id);
+    // Función para Eliminar con SweetAlert2
+    function deleteUser(id, username) {
+      Swal.fire({
+        title: "¿Eliminar Usuario?",
+        html: `Estás a punto de eliminar a <strong>${username}</strong>.<br>Esta acción no se puede deshacer.`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc3545",
+        cancelButtonColor: "#232425",
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          const formData = new FormData();
+          formData.append("action", "delete");
+          formData.append("id", id);
 
-            fetch('actions/actions_user.php', { method: 'POST', body: formData })
-            .then(r => r.json())
-            .then(res => {
-                if(res.status) location.reload();
-                else alert(res.message);
+          fetch("actions/actions_user.php", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((res) => {
+              if (res.status) {
+                Swal.fire("¡Eliminado!", res.message, "success").then(() =>
+                  location.reload(),
+                );
+              } else {
+                Swal.fire("Error", res.message, "error");
+              }
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              Swal.fire("Error", "Problema al intentar eliminar.", "error");
             });
         }
+      });
     }
 
     // Buscador en tiempo real
