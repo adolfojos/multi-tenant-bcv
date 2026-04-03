@@ -11,39 +11,6 @@ include 'layouts/sidebar.php';
     <div class="app-content">
         <div class="container-fluid">
 
-            <?php
-            if (isset($_GET['msg'])):
-                $alerts = [
-                    'created' => ['class' => 'success', 'icon' => 'check-circle', 'text' => 'Producto añadido correctamente.'],
-                    'updated' => ['class' => 'info', 'icon' => 'edit', 'text' => 'Producto actualizado con éxito.'],
-                    'deleted' => ['class' => 'warning', 'icon' => 'trash', 'text' => 'Producto eliminado del inventario.']
-                ];
-                $m = $alerts[$_GET['msg']] ?? null;
-                if ($m):
-            ?>
-                    <div class="alert alert-<?= $m['class'] ?> alert-dismissible fade show shadow-sm" role="alert">
-                        <i class="fas fa-<?= $m['icon'] ?> me-2"></i> <?= $m['text'] ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-            <?php endif;
-            endif; ?>
-
-            <?php if (isset($_GET['error'])): ?>
-                <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
-                    <i class="fas fa-exclamation-circle me-2"></i> <strong>Error:</strong> <?= htmlspecialchars($_GET['error']) ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            <?php endif; ?>
-
-            <div class="d-flex justify-content-end gap-2 mb-3">
-                <a href="generate_pdf.php?type=sales" target="_blank" class="btn btn-sm btn-outline-info">
-                    <i class="fas fa-file-pdf me-1"></i> Cierre del Día
-                </a>
-                <a href="generate_pdf.php?type=inventory" target="_blank" class="btn btn-sm btn-outline-secondary">
-                    <i class="fas fa-boxes me-1"></i> Reporte Inventario
-                </a>
-            </div>
-
             <div class="row">
                 <div class="col-12 col-sm-6 col-md-4 mb-3">
                     <div class="info-box shadow-sm h-100">
@@ -64,8 +31,7 @@ include 'layouts/sidebar.php';
                             <span class="info-box-text text-uppercase small fw-bold text-secondary">Bajo Stock (< 5)</span>
                                     <span class="info-box-number <?= $lowStockCount > 0 ? 'text-danger' : 'text-info' ?> fs-4 mb-0"><?= $lowStockCount ?></span>
                                     <span class="progress-description <?= $lowStockCount > 0 ? 'text-danger opacity-75' : 'text-muted' ?> small">
-                                        <?= $lowStockCount > 0 ? '¡Necesitas reponer!' : 'Stock saludable' ?>
-                                    </span>
+                                        <?= $lowStockCount > 0 ? '¡Necesitas reponer!' : 'Stock saludable' ?></span>
                         </div>
                     </div>
                 </div>
@@ -161,9 +127,6 @@ include 'layouts/sidebar.php';
                                                     </button>
                                                     <button class="btn btn-sm btn-outline-warning me-1" onclick='editProduct(<?= $p_json ?>)' title="Editar">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn btn-sm btn-outline-danger me-1" onclick='confirmDelete(<?= $p["id"] ?>, "<?= addslashes($p["name"]) ?>")' title="Eliminar">
-                                                        <i class="fas fa-trash"></i>
                                                     </button>
                                                     <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(<?= $p['id'] ?>, '<?= addslashes(htmlspecialchars($p['name'])) ?>')" title="Eliminar">
                                                         <i class="fas fa-trash"></i>

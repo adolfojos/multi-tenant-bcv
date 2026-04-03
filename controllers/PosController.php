@@ -68,7 +68,6 @@ $headerConfig = [
     'button'    => [
         'text'   => ' Ventas de Hoy: <span class="text-success fw-bold"> $' . number_format($sales ?? 0, 2) . '</span> / <span class="text-primary fw-bold">Bs.' . number_format(($sales * $bcvRate) ?? 0, 2) . '</span>',
         'icon'   => 'fas fa-coins me-1',
-       
         'class'  => 'btn btn-outline-primary mb-2 btn-sm text-start',
     ]
 ];

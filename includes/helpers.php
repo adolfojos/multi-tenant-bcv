@@ -7,7 +7,6 @@ function render_content_header($config)
     $icon        = $config['icon'] ?? 'fas fa-home';
     $tenant      = $config['tenant'] ?? 'Sistema POS';
     $bcv         = $config['bcv'] ?? 0;
-
     // Configuración del botón (opcional)
     $button      = $config['button'] ?? null;
 

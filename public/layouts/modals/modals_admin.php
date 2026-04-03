@@ -1,12 +1,13 @@
-<div class="modal fade" id="modalInsert" tabindex="-1" >
-    <div class="modal-dialog modal-lg modal-dialog-centered"> <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
+<div class="modal fade" id="modalInsert" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <form id="formInsert" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i> Añadir Nuevo Producto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
                 <input type="hidden" name="action" value="create">
-                
+
                 <div class="row">
                     <div class="col-md-8 mb-3">
                         <label class="form-label fw-bold">Nombre del Producto <span class="text-danger">*</span></label>
@@ -19,7 +20,7 @@
                         <label class="form-label fw-bold">Categoría <span class="text-danger">*</span></label>
                         <select name="category_id" class="form-select" required>
                             <option value="" disabled selected>Seleccione...</option>
-                            <?php foreach($categories as $c): ?>
+                            <?php foreach ($categories as $c): ?>
                                 <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -93,9 +94,9 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalEdit" tabindex="-1" >
+<div class="modal fade" id="modalEdit" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
+        <form id="formEdit" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i> Editar Producto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -116,7 +117,7 @@
                         <label class="form-label fw-bold">Categoría <span class="text-danger">*</span></label>
                         <select name="category_id" id="edit_category" class="form-select" required>
                             <option value="" disabled selected>Seleccione...</option>
-                            <?php foreach($categories as $c): ?>
+                            <?php foreach ($categories as $c): ?>
                                 <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -191,41 +192,17 @@
 </div>
 
 
-<div class="modal fade" id="modalView" tabindex="-1" >
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+<div class="modal fade" id="modalView" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-info text-white">
                 <h5 class="modal-title"><i class="fas fa-info-circle me-2"></i> Detalles del Producto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" id="viewContent">
-                </div>
+            </div>
             <div class="modal-footer bg-light p-2">
-                 <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-
-<div class="modal fade" id="modalConfirmDelete" tabindex="-1" >
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-danger text-white border-0">
-                <h5 class="modal-title mx-auto">Confirmar Borrado</h5>
-            </div>
-            <div class="modal-body text-center py-4">
-                <div class="text-danger mb-3">
-                    <i class="fas fa-times-circle fa-4x animate__animated animate__pulse animate__infinite"></i>
-                </div>
-                <h5 class="fw-bold text-dark">¿Estás seguro?</h5>
-                <p class="text-muted px-2" id="deleteProductName"></p>
-                <small class="text-danger fw-bold uppercase">Esta acción es irreversible</small>
-            </div>
-            <div class="modal-footer justify-content-center border-0 pb-4">
-                <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancelar</button>
-                <a id="btnConfirmDelete" href="#" class="btn btn-danger px-4 shadow-sm">Sí, Eliminar</a>
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>

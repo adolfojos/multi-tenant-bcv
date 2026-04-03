@@ -1,58 +1,103 @@
-// Variables globales para las instancias de los modales
 let modalViewInstance;
 let modalEditInstance;
-let modalConfirmDeleteInstance;
+let modalInsertInstance; // Añadido para controlar el modal de crear
 
 document.addEventListener("DOMContentLoaded", function () {
-  if (typeof bootstrap === "undefined") {
-    console.error(
-      "⚠️ ERROR: Bootstrap JS no está cargado. Los modales no funcionarán.",
-    );
-    return;
-  }
+    if (typeof bootstrap === "undefined") {
+        console.error("⚠️ ERROR: Bootstrap JS no está cargado.");
+        return;
+    }
 
-  // Inicializar modales dinámicos
-  modalViewInstance = new bootstrap.Modal(document.getElementById("modalView"));
-  modalEditInstance = new bootstrap.Modal(document.getElementById("modalEdit"));
-  modalConfirmDeleteInstance = new bootstrap.Modal(
-    document.getElementById("modalConfirmDelete"),
-  );
+    modalViewInstance = new bootstrap.Modal(document.getElementById("modalView"));
+    modalEditInstance = new bootstrap.Modal(document.getElementById("modalEdit"));
+    
+    // Si tu modal de insertar tiene este ID:
+    const modalInsertEl = document.getElementById("modalInsert");
+    if(modalInsertEl) modalInsertInstance = new bootstrap.Modal(modalInsertEl);
+
+    // --- INTERCEPTAR FORMULARIO DE CREAR ---
+    const formInsert = document.getElementById("formInsert"); // <-- Verifica que este ID exista en modals_admin.php
+    if (formInsert) {
+        formInsert.addEventListener("submit", function (e) {
+            e.preventDefault();
+            submitFormAjax(this, "create", modalInsertInstance);
+        });
+    }
+
+    // --- INTERCEPTAR FORMULARIO DE EDITAR ---
+    const formEdit = document.getElementById("formEdit"); // <-- Verifica que este ID exista en modals_admin.php
+    if (formEdit) {
+        formEdit.addEventListener("submit", function (e) {
+            e.preventDefault();
+            submitFormAjax(this, "update", modalEditInstance);
+        });
+    }
 });
 
-// Inicialización de DataTables usando jQuery
+// Inicialización de DataTables
 $(document).ready(function () {
-  $("#productosTable").DataTable({
-    language: {
-      url: "//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json", // Traducción al español
-    },
-    responsive: true,
-    pageLength: 10,
-    lengthMenu: [
-      [10, 25, 50, -1],
-      [10, 25, 50, "Todos"],
-    ],
-    order: [[0, "asc"]], // Ordenar por la columna de "Producto" por defecto
-    columnDefs: [
-      { orderable: false, targets: 10 }, // Deshabilita el ordenamiento en la columna "Acciones"
-    ],
-    dom: '<"row mb-3"<"col-md-6"l><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>', // Estructura adaptada a Bootstrap 5
-  });
+    $("#productosTable").DataTable({
+        language: { url: "//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json" },
+        responsive: true,
+        pageLength: 10,
+        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Todos"]],
+        order: [[0, "asc"]],
+        columnDefs: [{ orderable: false, targets: 10 }],
+        dom: '<"row mb-3"<"col-md-6"l><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>'
+    });
 });
 
-// --- FUNCIONES GLOBALES ---
+// --- FUNCIÓN GENÉRICA PARA ENVIAR FORMULARIOS CON FETCH ---
+function submitFormAjax(form, actionType, modalInstance) {
+    const formData = new FormData(form);
+    formData.append("action", actionType);
+
+    // Deshabilitar el botón de guardado para evitar doble clic
+    const btnSubmit = form.querySelector('button[type="submit"]');
+    if(btnSubmit) btnSubmit.disabled = true;
+
+    fetch("actions/actions_product.php", {
+        method: "POST",
+        body: formData,
+    })
+    .then((response) => response.json())
+    .then((res) => {
+        if (res.status) {
+            if(modalInstance) modalInstance.hide();
+            Swal.fire({
+                title: "¡Éxito!",
+                text: res.message,
+                icon: "success",
+                confirmButtonColor: "#198754"
+            }).then(() => {
+                location.reload(); // Recargar para ver los cambios
+            });
+        } else {
+            Swal.fire("Error", res.message, "error");
+        }
+    })
+    .catch((error) => {
+        console.error("Error:", error);
+        Swal.fire("Error", "Problema de conexión con el servidor.", "error");
+    })
+    .finally(() => {
+        if(btnSubmit) btnSubmit.disabled = false;
+    });
+}
+
 
 function viewProduct(p) {
-  if (!modalViewInstance) return alert("El modal aún no se ha inicializado.");
+    if (!modalViewInstance) return alert('El modal aún no se ha inicializado.');
 
-  const imgHtml = p.image
-    ? `<div class="text-center mb-3"><img src="${p.image}" class="img-fluid rounded border shadow-sm" style="max-height: 200px; object-fit: contain;"></div>`
-    : `<div class="text-center py-4 bg-secondary bg-opacity-10 border rounded mb-3"><i class="fas fa-box fa-4x text-secondary opacity-50"></i></div>`;
+    const imgHtml = p.image 
+        ? `<div class="text-center mb-3"><img src="${p.image}" class="img-fluid rounded border shadow-sm" style="max-height: 200px; object-fit: contain;"></div>` 
+        : `<div class="text-center py-4 bg-secondary bg-opacity-10 border rounded mb-3"><i class="fas fa-box fa-4x text-secondary opacity-50"></i></div>`;
+    
+    const descHtml = p.description 
+        ? `<div class="alert alert-secondary small mb-3 p-2"><i class="fas fa-quote-left me-2 text-muted"></i><em>${p.description}</em></div>` 
+        : '';
 
-  const descHtml = p.description
-    ? `<div class="alert alert-secondary small mb-3 p-2"><i class="fas fa-quote-left me-2 text-muted"></i><em>${p.description}</em></div>`
-    : "";
-
-  const content = `
+    const content = `
         ${imgHtml}
         <ul class="list-group list-group-flush mb-3">
             <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
@@ -71,14 +116,14 @@ function viewProduct(p) {
                 <span class="text-muted fw-bold">Cód. Barras:</span>
                 <span>${p.barcode || '<span class="text-muted fst-italic">N/A</span>'}</span>
             </li>
-            ${descHtml ? `<li class="list-group-item bg-transparent px-0 border-0 pb-0">${descHtml}</li>` : ""}
+            ${descHtml ? `<li class="list-group-item bg-transparent px-0 border-0 pb-0">${descHtml}</li>` : ''}
             <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
                 <span class="text-muted fw-bold">Categoría:</span>
-                <span class="badge text-bg-secondary">${p.category_name || "General"}</span>
+                <span class="badge text-bg-secondary">${p.category_name || 'General'}</span>
             </li>
             <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
                 <span class="text-muted fw-bold">Stock actual:</span>
-                <span><span class="badge ${p.stock < 5 ? "text-bg-danger" : "text-bg-success"} rounded-pill me-1">${p.stock}</span> Unidades</span>
+                <span><span class="badge ${p.stock < 5 ? 'text-bg-danger' : 'text-bg-success'} rounded-pill me-1">${p.stock}</span> Unidades</span>
             </li>
         </ul>
         <div class="card bg-light border-0 shadow-sm">
@@ -94,74 +139,64 @@ function viewProduct(p) {
             </div>
         </div>
     `;
-  document.getElementById("viewContent").innerHTML = content;
-  modalViewInstance.show();
+    document.getElementById('viewContent').innerHTML = content;
+    modalViewInstance.show();
 }
 
 function editProduct(p) {
-  if (!modalEditInstance) return alert("El modal aún no se ha inicializado.");
-
-  document.getElementById("edit_id").value = p.id;
-  document.getElementById("edit_name").value = p.name;
-  document.getElementById("edit_category").value = p.category_id || "";
-  document.getElementById("edit_sku").value = p.sku || "";
-  document.getElementById("edit_barcode").value = p.barcode || "";
-  document.getElementById("edit_brand").value = p.brand || "";
-  document.getElementById("edit_price").value = p.price_base_usd;
-  document.getElementById("edit_margin").value = p.profit_margin;
-  document.getElementById("edit_stock").value = p.stock;
-  document.getElementById("edit_image").value = p.image || "";
-  document.getElementById("edit_description").value = p.description || "";
-
-  modalEditInstance.show();
-}
-
-function confirmDelete(id, name) {
-  if (!modalConfirmDeleteInstance)
-    return alert("El modal aún no se ha inicializado.");
-
-  document.getElementById("deleteProductName").innerText = name;
-  document.getElementById("btnConfirmDelete").href =
-    `actions/actions_product.php?action=delete&id=${id}`;
-
-  modalConfirmDeleteInstance.show();
+    if (!modalEditInstance) return alert("El modal aún no se ha inicializado.");
+    document.getElementById("edit_id").value = p.id;
+    document.getElementById("edit_name").value = p.name;
+    document.getElementById("edit_category").value = p.category_id || "";
+    document.getElementById("edit_sku").value = p.sku || "";
+    document.getElementById("edit_barcode").value = p.barcode || "";
+    document.getElementById("edit_brand").value = p.brand || "";
+    document.getElementById("edit_price").value = p.price_base_usd;
+    document.getElementById("edit_margin").value = p.profit_margin;
+    document.getElementById("edit_stock").value = p.stock;
+    document.getElementById("edit_image").value = p.image || "";
+    document.getElementById("edit_description").value = p.description || "";
+    modalEditInstance.show();
 }
 
 // Función para Eliminar con SweetAlert2
 function deleteProduct(id, name) {
-  Swal.fire({
-    title: "¿Eliminar El Producto?",
-    html: `Estás a punto de eliminar el Producto <strong>${name}</strong>.<br>Esta acción no se puede deshacer.`,
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonColor: "#dc3545",
-    cancelButtonColor: "#232425",
-    confirmButtonText: "Sí, eliminar",
-    cancelButtonText: "Cancelar",
-  }).then((result) => {
-    if (result.isConfirmed) {
-      const formData = new FormData();
-      formData.append("action", "delete");
-      formData.append("id", id);
+    Swal.fire({
+        title: "¿Eliminar Producto?",
+        html: `Estás a punto de eliminar <strong>${name}</strong>.<br>Esta acción no se puede deshacer.`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc3545",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar",
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const formData = new FormData();
+            formData.append("action", "delete");
+            formData.append("id", id);
 
-      fetch("actions/actions_product.php", {
-        method: "POST",
-        body: formData,
-      })
-        .then((response) => response.json())
-        .then((res) => {
-          if (res.status) {
-            Swal.fire("¡Eliminado!", res.message, "success").then(() =>
-              location.reload(),
-            );
-          } else {
-            Swal.fire("Error", res.message, "error");
-          }
-        })
-        .catch((error) => {
-          console.error("Error:", error);
-          Swal.fire("Error", "Problema al intentar eliminar.", "error");
-        });
-    }
-  });
+            fetch("actions/actions_product.php", {
+                method: "POST",
+                body: formData,
+            })
+            .then((response) => response.json())
+            .then((res) => {
+                if (res.status) {
+                    Swal.fire({
+                        title: "¡Eliminado!", 
+                        text: res.message, 
+                        icon: "success",
+                        confirmButtonColor: "#198754"
+                    }).then(() => location.reload());
+                } else {
+                    Swal.fire("Error", res.message, "error");
+                }
+            })
+            .catch((error) => {
+                console.error("Error:", error);
+                Swal.fire("Error", "Problema al intentar eliminar.", "error");
+            });
+        }
+    });
 }

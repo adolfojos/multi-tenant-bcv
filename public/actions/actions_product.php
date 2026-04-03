@@ -2,35 +2,32 @@
 require_once '../../includes/Middleware.php';
 require_once '../../config/db.php';
 
-// 1. Seguridad: Verificar que el usuario esté logueado
+// Asegurar que la respuesta sea JSON
+header('Content-Type: application/json');
+
 if (session_status() === PHP_SESSION_NONE) session_start();
 Middleware::checkAuth();
-Middleware::onlyAdmin(); // Recomendable si solo los admins manejan inventario
+Middleware::onlyAdmin(); 
 
 $database = new Database();
 $db = $database->getConnection();
 
-// 2. Determinar la acción
 $action = $_REQUEST['action'] ?? '';
 $tenant_id = $_SESSION['tenant_id'];
 
 try {
     switch ($action) {
         case 'create':
-            // Recibir y limpiar datos obligatorios
             $name = trim($_POST['name'] ?? '');
             if (empty($name)) throw new Exception("El nombre del producto es obligatorio.");
 
-            // Datos opcionales y casteos seguros
             $sku = trim($_POST['sku'] ?? '');
             $barcode = trim($_POST['barcode'] ?? '');
             $brand = trim($_POST['brand'] ?? '');
             $catId = !empty($_POST['category_id']) ? (int)$_POST['category_id'] : 1;
-            
             $price = floatval($_POST['price'] ?? 0);
             $margin = floatval($_POST['margin'] ?? 0);
             $stock = (int)($_POST['stock'] ?? 0);
-            
             $image = trim($_POST['image'] ?? '');
             $description = trim($_POST['description'] ?? '');
 
@@ -55,7 +52,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: ../admin.php?msg=created"); 
+                echo json_encode(['status' => true, 'message' => 'Producto creado con éxito.']);
                 exit;
             } else {
                 throw new Exception("No se pudo crear el producto en la base de datos.");
@@ -63,7 +60,6 @@ try {
             break;
 
         case 'update':
-            // Validar ID
             $id = !empty($_POST['id']) ? (int)$_POST['id'] : 0;
             if ($id <= 0) throw new Exception("ID de producto inválido para actualizar.");
 
@@ -77,7 +73,6 @@ try {
             $price = floatval($_POST['price'] ?? 0);
             $margin = floatval($_POST['margin'] ?? 0);
             $stock = (int)($_POST['stock'] ?? 0);
-            
             $image = trim($_POST['image'] ?? '');
             $description = trim($_POST['description'] ?? '');
 
@@ -111,7 +106,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: ../admin.php?msg=updated");
+                echo json_encode(['status' => true, 'message' => 'Producto actualizado con éxito.']);
                 exit;
             } else {
                 throw new Exception("Error al ejecutar la actualización.");
@@ -119,9 +114,7 @@ try {
             break;
 
         case 'delete':
-            // Tomamos el ID de GET o POST de forma segura
             $id = !empty($_REQUEST['id']) ? (int)$_REQUEST['id'] : 0;
-            
             if ($id <= 0) throw new Exception("ID no proporcionado para eliminar.");
 
             $sql = "DELETE FROM products WHERE id = :id AND tenant_id = :tid";
@@ -132,7 +125,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: ../admin.php?msg=deleted");
+                echo json_encode(['status' => true, 'message' => 'Producto eliminado correctamente.']);
                 exit;
             } else {
                 throw new Exception("Error al intentar eliminar el producto.");
@@ -140,12 +133,10 @@ try {
             break;
 
         default:
-            header("Location: ../admin.php");
-            exit;
+            throw new Exception("Acción no válida.");
     }
 } catch (Exception $e) {
-    // Redirigir con el mensaje de error para que se muestre en el alert de Bootstrap
-    header("Location: ../admin.php?error=" . urlencode($e->getMessage()));
+    echo json_encode(['status' => false, 'message' => $e->getMessage()]);
     exit;
 }
 ?>

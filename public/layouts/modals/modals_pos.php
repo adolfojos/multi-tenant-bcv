@@ -110,7 +110,6 @@
         </div>
     </div>
 </div>
-
 <div class="modal fade" id="modalDefault" tabindex="-1" aria-labelledby="modalDefaultLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
@@ -124,7 +123,7 @@
                 <div class="row g-3 text-center">
                     <div class="col-6">
                         <div class="p-3 border rounded bg-light">
-                            <small class="text-muted d-block text-uppercase fw-bold">Total USD</small>
+                            <small class="text-muted d-block text-uppercase fw-bold">Total $</small>
                             <h4 class="text-success fw-bold mb-0">$0.00</h4>
                         </div>
                     </div>

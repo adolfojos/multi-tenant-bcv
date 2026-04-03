@@ -1,9 +1,10 @@
 let modalCustomerInstance;
-
+let modalViewInstance;
 document.addEventListener("DOMContentLoaded", function() {
     // Inicializar modal
     modalCustomerInstance = new bootstrap.Modal(document.getElementById('modalCustomerForm'));
-
+    modalViewInstance = new bootstrap.Modal(document.getElementById("modalView"));
+    
     // Inicializar DataTable
     if ($.fn.DataTable) {
         $('#customersTable').DataTable({
@@ -104,4 +105,35 @@ function deleteCustomer(id, name) {
             });
         }
     });
+}
+
+function viewCustomer(c) {
+    if (!modalViewInstance) return alert('El modal aún no se ha inicializado.');
+
+    // Validar si los campos están vacíos para mostrar un texto por defecto
+    const documentText = c.document ? c.document : '<span class="text-muted fst-italic">No registrado</span>';
+    const phoneText = c.phone ? c.phone : '<span class="text-muted fst-italic">No registrado</span>';
+
+    const content = `
+        <div class="text-center mb-4">
+            <i class="fas fa-user-circle text-secondary" style="font-size: 4rem;"></i>
+        </div>
+        <ul class="list-group list-group-flush mb-3">
+            <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
+                <span class="text-muted fw-bold">Nombre:</span>
+                <span class="fw-bold text-primary">${c.name}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
+                <span class="text-muted fw-bold">Cédula / RIF:</span>
+                <span class="fw-bold">${documentText}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
+                <span class="text-muted fw-bold">Teléfono:</span>
+                <span class="fw-bold">${phoneText}</span>
+            </li>
+        </ul>
+    `;
+    
+    document.getElementById('viewContent').innerHTML = content;
+    modalViewInstance.show();
 }
