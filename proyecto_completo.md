@@ -651,6 +651,38 @@ foreach($kpiQueries as $key => $query){
     }
 }
 
+// --- RESUMEN DE VENTAS (HOY) PARA EL MODAL ---
+$sqlResumen = "SELECT payment_method, SUM(total_amount_usd) as total_usd, SUM(total_amount_bs) as total_bs 
+               FROM sales 
+               WHERE tenant_id = :tid AND DATE(created_at) = CURDATE() 
+               GROUP BY payment_method";
+$stmtResumen = $db->prepare($sqlResumen);
+$stmtResumen->bindValue(':tid', $tenant_id, PDO::PARAM_INT);
+$stmtResumen->execute();
+$ventasHoyMetodos = $stmtResumen->fetchAll(PDO::FETCH_ASSOC);
+
+// Inicializamos el array con los métodos disponibles para evitar errores de variables no definidas
+$resumenTotales = [
+    'usd' => 0,
+    'bs' => 0,
+    'efectivo_bs' => 0,
+    'efectivo_usd' => 0,
+    'pago_movil' => 0,
+    'punto' => 0,
+    'transferencia' => 0,
+    'credito' => 0
+];
+
+// Asignamos los valores devueltos por la consulta
+foreach($ventasHoyMetodos as $v) {
+    $resumenTotales['usd'] += $v['total_usd'];
+    $resumenTotales['bs'] += $v['total_bs'];
+    
+    $metodo = $v['payment_method'];
+    if(isset($resumenTotales[$metodo])) {
+        $resumenTotales[$metodo] += $v['total_usd'];
+    }
+}
 $headerConfig = [
     'title'     => 'Punto de Venta (POS)',
     'colorico'  => 'success',
@@ -660,8 +692,8 @@ $headerConfig = [
     'button'    => [
         'text'   => ' Ventas de Hoy: <span class="text-success fw-bold"> $' . number_format($sales ?? 0, 2) . '</span> / <span class="text-primary fw-bold">Bs.' . number_format(($sales * $bcvRate) ?? 0, 2) . '</span>',
         'icon'   => 'fas fa-coins me-1',
-       
         'class'  => 'btn btn-outline-primary mb-2 btn-sm text-start',
+        'target' => '#modalDefault' // Aseguramos el enlace con el modal
     ]
 ]; ```
 
@@ -831,6 +863,8 @@ $headerConfig = [
 ## Archivo: ./controllers/UserController.php
  ```php
 <?php
+// Archivo: ./controllers/UserController.php
+
 require_once '../config/db.php';
 require_once '../includes/Middleware.php';
 require_once '../includes/ExchangeRate.php';
@@ -1258,7 +1292,6 @@ function render_content_header($config)
     $icon        = $config['icon'] ?? 'fas fa-home';
     $tenant      = $config['tenant'] ?? 'Sistema POS';
     $bcv         = $config['bcv'] ?? 0;
-
     // Configuración del botón (opcional)
     $button      = $config['button'] ?? null;
 
@@ -1773,6 +1806,7 @@ class Sale
 ## Archivo: ./includes/User.php
  ```php
 <?php
+//Archivo: ./includes/User.php
 class User {
     private $conn;
     private $tenant_id;
@@ -1783,13 +1817,15 @@ class User {
     }
 
     public function getAll() {
-        $sql = "SELECT id, username, role, created_at FROM users WHERE tenant_id = :tid ORDER BY role ASC, username ASC";
+        $sql = "SELECT id, username, full_name, role, created_at FROM users WHERE tenant_id = :tid ORDER BY role ASC, username ASC";
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([':tid' => $this->tenant_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function create($username, $password, $role) {
+
+    
+    public function create($username,$password, $full_name, $role) {
         // Verificar duplicados
         $sqlCheck = "SELECT COUNT(*) FROM users WHERE username = :u AND tenant_id = :tid";
         $stmtCheck = $this->conn->prepare($sqlCheck);
@@ -1799,17 +1835,17 @@ class User {
         // Hash seguro
         $hash = password_hash($password, PASSWORD_DEFAULT);
 
-        $sql = "INSERT INTO users (tenant_id, username, password, role) VALUES (:tid, :u, :p, :r)";
+        $sql = "INSERT INTO users (tenant_id, username, password, full_name, role) VALUES (:tid, :u, :p, :fn, :r)";
         $stmt = $this->conn->prepare($sql);
-        if($stmt->execute([':tid' => $this->tenant_id, ':u' => $username, ':p' => $hash, ':r' => $role])){
+        if($stmt->execute([':tid' => $this->tenant_id, ':u' => $username, ':p' => $hash, ':fn' => $full_name, ':r' => $role])){
             return ['status' => true];
         }
         return ['status' => false, 'message' => 'Error al insertar en BD'];
     }
 
-    public function update($id, $username, $role, $password = null) {
-        $params = [':u' => $username, ':r' => $role, ':id' => $id, ':tid' => $this->tenant_id];
-        $sql = "UPDATE users SET username = :u, role = :r";
+    public function update($id, $username, $full_name, $role, $password = null) {
+        $params = [':u' => $username, ':fn' => $full_name, ':r' => $role, ':id' => $id, ':tid' => $this->tenant_id];
+        $sql = "UPDATE users SET username = :u, full_name = :fn, role = :r";
 
         // Solo actualizamos password si enviaron uno nuevo
         if (!empty($password)) {
@@ -1823,17 +1859,20 @@ class User {
         if($stmt->execute($params)) return ['status' => true];
         return ['status' => false, 'message' => 'Error al actualizar'];
     }
-
-    public function delete($id) {
-        // Evitar suicidio digital (Borrar tu propio usuario)
-        if($id == $_SESSION['user_id']) {
-            return ['status' => false, 'message' => 'No puedes eliminar tu propia cuenta mientras la usas.'];
+   
+    public function delete($id)
+    {
+        if ($id == $_SESSION['user_id']) {
+            return ['status' => false, 'message' => 'No puedes eliminar tu propia cuenta.'];
         }
 
         $sql = "DELETE FROM users WHERE id = :id AND tenant_id = :tid";
         $stmt = $this->conn->prepare($sql);
-        if($stmt->execute([':id' => $id, ':tid' => $this->tenant_id])) return ['status' => true];
-        return ['status' => false, 'message' => 'Error al eliminar'];
+
+        if ($stmt->execute([':id' => $id, ':tid' => $this->tenant_id])) {
+            return ['status' => true, 'message' => 'Usuario borrado con éxito.'];
+        }
+        return ['status' => false, 'message' => 'Error al eliminar de la base de datos.'];
     }
 } ```
 
@@ -2913,35 +2952,32 @@ try {
 require_once '../../includes/Middleware.php';
 require_once '../../config/db.php';
 
-// 1. Seguridad: Verificar que el usuario esté logueado
+// Asegurar que la respuesta sea JSON
+header('Content-Type: application/json');
+
 if (session_status() === PHP_SESSION_NONE) session_start();
 Middleware::checkAuth();
-Middleware::onlyAdmin(); // Recomendable si solo los admins manejan inventario
+Middleware::onlyAdmin(); 
 
 $database = new Database();
 $db = $database->getConnection();
 
-// 2. Determinar la acción
 $action = $_REQUEST['action'] ?? '';
 $tenant_id = $_SESSION['tenant_id'];
 
 try {
     switch ($action) {
         case 'create':
-            // Recibir y limpiar datos obligatorios
             $name = trim($_POST['name'] ?? '');
             if (empty($name)) throw new Exception("El nombre del producto es obligatorio.");
 
-            // Datos opcionales y casteos seguros
             $sku = trim($_POST['sku'] ?? '');
             $barcode = trim($_POST['barcode'] ?? '');
             $brand = trim($_POST['brand'] ?? '');
             $catId = !empty($_POST['category_id']) ? (int)$_POST['category_id'] : 1;
-            
             $price = floatval($_POST['price'] ?? 0);
             $margin = floatval($_POST['margin'] ?? 0);
             $stock = (int)($_POST['stock'] ?? 0);
-            
             $image = trim($_POST['image'] ?? '');
             $description = trim($_POST['description'] ?? '');
 
@@ -2966,7 +3002,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: ../admin.php?msg=created"); 
+                echo json_encode(['status' => true, 'message' => 'Producto creado con éxito.']);
                 exit;
             } else {
                 throw new Exception("No se pudo crear el producto en la base de datos.");
@@ -2974,7 +3010,6 @@ try {
             break;
 
         case 'update':
-            // Validar ID
             $id = !empty($_POST['id']) ? (int)$_POST['id'] : 0;
             if ($id <= 0) throw new Exception("ID de producto inválido para actualizar.");
 
@@ -2988,7 +3023,6 @@ try {
             $price = floatval($_POST['price'] ?? 0);
             $margin = floatval($_POST['margin'] ?? 0);
             $stock = (int)($_POST['stock'] ?? 0);
-            
             $image = trim($_POST['image'] ?? '');
             $description = trim($_POST['description'] ?? '');
 
@@ -3022,7 +3056,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: ../admin.php?msg=updated");
+                echo json_encode(['status' => true, 'message' => 'Producto actualizado con éxito.']);
                 exit;
             } else {
                 throw new Exception("Error al ejecutar la actualización.");
@@ -3030,9 +3064,7 @@ try {
             break;
 
         case 'delete':
-            // Tomamos el ID de GET o POST de forma segura
             $id = !empty($_REQUEST['id']) ? (int)$_REQUEST['id'] : 0;
-            
             if ($id <= 0) throw new Exception("ID no proporcionado para eliminar.");
 
             $sql = "DELETE FROM products WHERE id = :id AND tenant_id = :tid";
@@ -3043,7 +3075,7 @@ try {
             ]);
 
             if ($res) {
-                header("Location: ../admin.php?msg=deleted");
+                echo json_encode(['status' => true, 'message' => 'Producto eliminado correctamente.']);
                 exit;
             } else {
                 throw new Exception("Error al intentar eliminar el producto.");
@@ -3051,12 +3083,10 @@ try {
             break;
 
         default:
-            header("Location: admin.php");
-            exit;
+            throw new Exception("Acción no válida.");
     }
 } catch (Exception $e) {
-    // Redirigir con el mensaje de error para que se muestre en el alert de Bootstrap
-    header("Location: ../admin.php?error=" . urlencode($e->getMessage()));
+    echo json_encode(['status' => false, 'message' => $e->getMessage()]);
     exit;
 }
 ?> ```
@@ -3114,6 +3144,8 @@ try {
 ## Archivo: ./public/actions/actions_user.php
  ```php
 <?php
+//Archivo: ./public/actions/actions_user.php
+
 require_once '../../includes/Middleware.php';
 require_once '../../config/db.php';
 require_once '../../includes/User.php';
@@ -3128,22 +3160,43 @@ $userObj = new User($db, $_SESSION['tenant_id']);
 $action = $_POST['action'] ?? '';
 
 try {
+
+    // En actions/actions_user.php
     if ($action === 'create') {
-        $res = $userObj->create($_POST['username'], $_POST['password'], $_POST['role']);
+        $res = $userObj->create($_POST['username'], $_POST['full_name'], $_POST['password'], $_POST['role']);
+        // Si el modelo devolvió true pero no traía mensaje, lo asignamos aquí
+        if ($res['status']) $res['message'] = "El usuario ha sido registrado correctamente.";
         echo json_encode($res);
-    } 
-    elseif ($action === 'update') {
-        // Si password viene vacío, se envía null
+    } elseif ($action === 'update') {
         $pass = !empty($_POST['password']) ? $_POST['password'] : null;
-        $res = $userObj->update($_POST['id'], $_POST['username'], $_POST['role'], $pass);
+        $res = $userObj->update($_POST['id'], $_POST['username'], $_POST['full_name'], $_POST['role'], $pass);
+        if ($res['status']) $res['message'] = "Los datos se actualizaron con éxito.";
         echo json_encode($res);
-    } 
-    elseif ($action === 'delete') { // GET request normalmente para delete simple
-        $id = $_POST['id'];
-        $res = $userObj->delete($id);
-        echo json_encode($res);
-    } 
-    else {
+    } elseif ($action === 'delete') {
+        // 1. Validar que el ID exista y sea numérico
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+
+        if (!$id) {
+            echo json_encode(['status' => false, 'message' => 'ID de usuario no válido.']);
+            exit;
+        }
+
+        // 2. Intentar la eliminación
+        try {
+            $res = $userObj->delete($id);
+
+            // 3. Personalizar el mensaje de éxito si el modelo no lo trae
+            if ($res['status'] && !isset($res['message'])) {
+                $res['message'] = "Usuario eliminado correctamente.";
+            }
+
+            echo json_encode($res);
+        } catch (Exception $e) {
+            // Log del error real para el desarrollador y mensaje genérico para el usuario
+            error_log("Error en delete user: " . $e->getMessage());
+            echo json_encode(['status' => false, 'message' => 'No se pudo eliminar el usuario debido a un error del servidor.']);
+        }
+    } else {
         echo json_encode(['status' => false, 'message' => 'Acción no válida']);
     }
 } catch (Exception $e) {
@@ -3165,39 +3218,6 @@ include 'layouts/sidebar.php';
     <div class="app-content">
         <div class="container-fluid">
 
-            <?php
-            if (isset($_GET['msg'])):
-                $alerts = [
-                    'created' => ['class' => 'success', 'icon' => 'check-circle', 'text' => 'Producto añadido correctamente.'],
-                    'updated' => ['class' => 'info', 'icon' => 'edit', 'text' => 'Producto actualizado con éxito.'],
-                    'deleted' => ['class' => 'warning', 'icon' => 'trash', 'text' => 'Producto eliminado del inventario.']
-                ];
-                $m = $alerts[$_GET['msg']] ?? null;
-                if ($m):
-            ?>
-                    <div class="alert alert-<?= $m['class'] ?> alert-dismissible fade show shadow-sm" role="alert">
-                        <i class="fas fa-<?= $m['icon'] ?> me-2"></i> <?= $m['text'] ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-            <?php endif;
-            endif; ?>
-
-            <?php if (isset($_GET['error'])): ?>
-                <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
-                    <i class="fas fa-exclamation-circle me-2"></i> <strong>Error:</strong> <?= htmlspecialchars($_GET['error']) ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            <?php endif; ?>
-
-            <div class="d-flex justify-content-end gap-2 mb-3">
-                <a href="generate_pdf.php?type=sales" target="_blank" class="btn btn-sm btn-outline-info">
-                    <i class="fas fa-file-pdf me-1"></i> Cierre del Día
-                </a>
-                <a href="generate_pdf.php?type=inventory" target="_blank" class="btn btn-sm btn-outline-secondary">
-                    <i class="fas fa-boxes me-1"></i> Reporte Inventario
-                </a>
-            </div>
-
             <div class="row">
                 <div class="col-12 col-sm-6 col-md-4 mb-3">
                     <div class="info-box shadow-sm h-100">
@@ -3218,8 +3238,7 @@ include 'layouts/sidebar.php';
                             <span class="info-box-text text-uppercase small fw-bold text-secondary">Bajo Stock (< 5)</span>
                                     <span class="info-box-number <?= $lowStockCount > 0 ? 'text-danger' : 'text-info' ?> fs-4 mb-0"><?= $lowStockCount ?></span>
                                     <span class="progress-description <?= $lowStockCount > 0 ? 'text-danger opacity-75' : 'text-muted' ?> small">
-                                        <?= $lowStockCount > 0 ? '¡Necesitas reponer!' : 'Stock saludable' ?>
-                                    </span>
+                                        <?= $lowStockCount > 0 ? '¡Necesitas reponer!' : 'Stock saludable' ?></span>
                         </div>
                     </div>
                 </div>
@@ -3316,7 +3335,7 @@ include 'layouts/sidebar.php';
                                                     <button class="btn btn-sm btn-outline-warning me-1" onclick='editProduct(<?= $p_json ?>)' title="Editar">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn btn-sm btn-outline-danger me-1" onclick='confirmDelete(<?= $p["id"] ?>, "<?= addslashes($p["name"]) ?>")' title="Eliminar">
+                                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(<?= $p['id'] ?>, '<?= addslashes(htmlspecialchars($p['name'])) ?>')" title="Eliminar">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
                                                 </div>
@@ -3341,7 +3360,7 @@ include 'layouts/modals/modals_admin.php';
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="js/admin.js"></script>
 </body>
 
@@ -3425,6 +3444,7 @@ include 'layouts/footer.php';
 include 'layouts/modals/modals_category.php';
 ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="js/categories.js"></script>
 </body>
 </html> ```
@@ -19515,13 +19535,13 @@ fieldset legend {
 require_once '../controllers/CustomerController.php';
 include 'layouts/head.php';
 include 'layouts/navbar.php';
-include 'layouts/sidebar.php'; 
+include 'layouts/sidebar.php';
 ?>
 <main class="app-main">
     <?= render_content_header($headerConfig) ?>
     <div class="app-content">
         <div class="container-fluid">
-            
+
             <div class="card card-outline card-primary shadow-sm">
                 <div class="card-header border-0 pb-0">
                     <h3 class="card-title fw-bold">Lista de Clientes</h3>
@@ -19538,26 +19558,29 @@ include 'layouts/sidebar.php';
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach($customers as $c): 
+                                <?php foreach ($customers as $c):
                                     // Preparamos los datos para pasarlos al botón de editar de forma segura
                                     $c_json = htmlspecialchars(json_encode($c), ENT_QUOTES, 'UTF-8');
                                 ?>
-                                <tr>
-                                    <td class="fw-bold text-primary">
-                                        <i class="fas fa-user-circle text-secondary me-2"></i><?= htmlspecialchars($c['name']) ?>
-                                    </td>
-                                    <td><?= !empty($c['document']) ? htmlspecialchars($c['document']) : '<span class="text-muted fst-italic">No registrado</span>' ?></td>
-                                    <td><?= !empty($c['phone']) ? htmlspecialchars($c['phone']) : '<span class="text-muted fst-italic">No registrado</span>' ?></td>
-                                    
-                                    <td class="text-end text-nowrap">
-                                        <button class="btn btn-sm btn-outline-warning me-1" onclick='openCustomerModal(<?= $c_json ?>)' title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomer(<?= $c['id'] ?>, '<?= addslashes(htmlspecialchars($c['name'])) ?>')" title="Eliminar">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
+                                    <tr>
+                                        <td class="fw-bold text-primary">
+                                            <i class="fas fa-user-circle text-secondary me-2"></i><?= htmlspecialchars($c['name']) ?>
+                                        </td>
+                                        <td><?= !empty($c['document']) ? htmlspecialchars($c['document']) : '<span class="text-muted fst-italic">No registrado</span>' ?></td>
+                                        <td><?= !empty($c['phone']) ? htmlspecialchars($c['phone']) : '<span class="text-muted fst-italic">No registrado</span>' ?></td>
+
+                                        <td class="text-end text-nowrap">
+                                                    <button class="btn btn-sm btn-outline-info me-1" onclick='viewCustomer(<?= $c_json ?>)' title="Ver Detalles">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                            <button class="btn btn-sm btn-outline-warning me-1" onclick='openCustomerModal(<?= $c_json ?>)' title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomer(<?= $c['id'] ?>, '<?= addslashes(htmlspecialchars($c['name'])) ?>')" title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
@@ -19567,45 +19590,15 @@ include 'layouts/sidebar.php';
         </div>
     </div>
 </main>
+<?php
+include 'layouts/footer.php';
+include 'layouts/modals/modals_customer.php';
+?>
 
-<div class="modal fade" id="modalCustomerForm" tabindex="-1" >
-    <div class="modal-dialog modal-dialog-centered">
-        <form id="formCustomer" class="modal-content shadow">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modalCustomerTitle"><i class="fas fa-user-plus me-2"></i> Nuevo Cliente</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4">
-                <input type="hidden" name="action" id="customerAction" value="create">
-                <input type="hidden" name="id" id="customerId">
-                
-                <div class="mb-3">
-                    <label class="form-label fw-bold small">Nombre Completo <span class="text-danger">*</span></label>
-                    <input type="text" name="name" id="customerName" class="form-control" required placeholder="Ej: Juan Pérez">
-                </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold small">Cédula / RIF</label>
-                        <input type="text" name="document" id="customerDoc" class="form-control" placeholder="Ej: V-12345678">
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold small">Teléfono</label>
-                        <input type="text" name="phone" id="customerPhone" class="form-control" placeholder="Ej: 0414-1234567">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary px-4 fw-bold" id="btnSaveCustomer">Guardar</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<?php include 'layouts/footer.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="js/customers.js"></script>
 </body>
+
 </html> ```
 
 ## Archivo: ./public/dashboard.php
@@ -19904,41 +19897,93 @@ if (empty($details)) {
 
 ## Archivo: ./public/js/admin.js
  ```javascript
-// Variables globales para las instancias de los modales
 let modalViewInstance;
 let modalEditInstance;
-let modalConfirmDeleteInstance;
+let modalInsertInstance; // Añadido para controlar el modal de crear
 
-document.addEventListener("DOMContentLoaded", function() {
-    if (typeof bootstrap === 'undefined') {
-        console.error('⚠️ ERROR: Bootstrap JS no está cargado. Los modales no funcionarán.');
+document.addEventListener("DOMContentLoaded", function () {
+    if (typeof bootstrap === "undefined") {
+        console.error("⚠️ ERROR: Bootstrap JS no está cargado.");
         return;
     }
 
-    // Inicializar modales dinámicos
-    modalViewInstance = new bootstrap.Modal(document.getElementById('modalView'));
-    modalEditInstance = new bootstrap.Modal(document.getElementById('modalEdit'));
-    modalConfirmDeleteInstance = new bootstrap.Modal(document.getElementById('modalConfirmDelete'));
+    modalViewInstance = new bootstrap.Modal(document.getElementById("modalView"));
+    modalEditInstance = new bootstrap.Modal(document.getElementById("modalEdit"));
+    
+    // Si tu modal de insertar tiene este ID:
+    const modalInsertEl = document.getElementById("modalInsert");
+    if(modalInsertEl) modalInsertInstance = new bootstrap.Modal(modalInsertEl);
+
+    // --- INTERCEPTAR FORMULARIO DE CREAR ---
+    const formInsert = document.getElementById("formInsert"); // <-- Verifica que este ID exista en modals_admin.php
+    if (formInsert) {
+        formInsert.addEventListener("submit", function (e) {
+            e.preventDefault();
+            submitFormAjax(this, "create", modalInsertInstance);
+        });
+    }
+
+    // --- INTERCEPTAR FORMULARIO DE EDITAR ---
+    const formEdit = document.getElementById("formEdit"); // <-- Verifica que este ID exista en modals_admin.php
+    if (formEdit) {
+        formEdit.addEventListener("submit", function (e) {
+            e.preventDefault();
+            submitFormAjax(this, "update", modalEditInstance);
+        });
+    }
 });
 
-// Inicialización de DataTables usando jQuery
-$(document).ready(function() {
-    $('#productosTable').DataTable({
-        "language": {
-            "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json" // Traducción al español
-        },
-        "responsive": true,
-        "pageLength": 10,
-        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "Todos"]],
-        "order": [[0, "asc"]], // Ordenar por la columna de "Producto" por defecto
-        "columnDefs": [
-            { "orderable": false, "targets": 10 } // Deshabilita el ordenamiento en la columna "Acciones"
-        ],
-        "dom": '<"row mb-3"<"col-md-6"l><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>' // Estructura adaptada a Bootstrap 5
+// Inicialización de DataTables
+$(document).ready(function () {
+    $("#productosTable").DataTable({
+        language: { url: "//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json" },
+        responsive: true,
+        pageLength: 10,
+        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Todos"]],
+        order: [[0, "asc"]],
+        columnDefs: [{ orderable: false, targets: 10 }],
+        dom: '<"row mb-3"<"col-md-6"l><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>'
     });
 });
 
-// --- FUNCIONES GLOBALES ---
+// --- FUNCIÓN GENÉRICA PARA ENVIAR FORMULARIOS CON FETCH ---
+function submitFormAjax(form, actionType, modalInstance) {
+    const formData = new FormData(form);
+    formData.append("action", actionType);
+
+    // Deshabilitar el botón de guardado para evitar doble clic
+    const btnSubmit = form.querySelector('button[type="submit"]');
+    if(btnSubmit) btnSubmit.disabled = true;
+
+    fetch("actions/actions_product.php", {
+        method: "POST",
+        body: formData,
+    })
+    .then((response) => response.json())
+    .then((res) => {
+        if (res.status) {
+            if(modalInstance) modalInstance.hide();
+            Swal.fire({
+                title: "¡Éxito!",
+                text: res.message,
+                icon: "success",
+                confirmButtonColor: "#198754"
+            }).then(() => {
+                location.reload(); // Recargar para ver los cambios
+            });
+        } else {
+            Swal.fire("Error", res.message, "error");
+        }
+    })
+    .catch((error) => {
+        console.error("Error:", error);
+        Swal.fire("Error", "Problema de conexión con el servidor.", "error");
+    })
+    .finally(() => {
+        if(btnSubmit) btnSubmit.disabled = false;
+    });
+}
+
 
 function viewProduct(p) {
     if (!modalViewInstance) return alert('El modal aún no se ha inicializado.');
@@ -19998,30 +20043,61 @@ function viewProduct(p) {
 }
 
 function editProduct(p) {
-    if (!modalEditInstance) return alert('El modal aún no se ha inicializado.');
-
-    document.getElementById('edit_id').value = p.id;
-    document.getElementById('edit_name').value = p.name;
-    document.getElementById('edit_category').value = p.category_id || '';
-    document.getElementById('edit_sku').value = p.sku || '';
-    document.getElementById('edit_barcode').value = p.barcode || '';
-    document.getElementById('edit_brand').value = p.brand || '';
-    document.getElementById('edit_price').value = p.price_base_usd;
-    document.getElementById('edit_margin').value = p.profit_margin;
-    document.getElementById('edit_stock').value = p.stock;
-    document.getElementById('edit_image').value = p.image || '';
-    document.getElementById('edit_description').value = p.description || '';
-
+    if (!modalEditInstance) return alert("El modal aún no se ha inicializado.");
+    document.getElementById("edit_id").value = p.id;
+    document.getElementById("edit_name").value = p.name;
+    document.getElementById("edit_category").value = p.category_id || "";
+    document.getElementById("edit_sku").value = p.sku || "";
+    document.getElementById("edit_barcode").value = p.barcode || "";
+    document.getElementById("edit_brand").value = p.brand || "";
+    document.getElementById("edit_price").value = p.price_base_usd;
+    document.getElementById("edit_margin").value = p.profit_margin;
+    document.getElementById("edit_stock").value = p.stock;
+    document.getElementById("edit_image").value = p.image || "";
+    document.getElementById("edit_description").value = p.description || "";
     modalEditInstance.show();
 }
 
-function confirmDelete(id, name) {
-    if (!modalConfirmDeleteInstance) return alert('El modal aún no se ha inicializado.');
+// Función para Eliminar con SweetAlert2
+function deleteProduct(id, name) {
+    Swal.fire({
+        title: "¿Eliminar Producto?",
+        html: `Estás a punto de eliminar <strong>${name}</strong>.<br>Esta acción no se puede deshacer.`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc3545",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar",
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const formData = new FormData();
+            formData.append("action", "delete");
+            formData.append("id", id);
 
-    document.getElementById('deleteProductName').innerText = name;
-    document.getElementById('btnConfirmDelete').href = `actions/actions_product.php?action=delete&id=${id}`;
-    
-    modalConfirmDeleteInstance.show();
+            fetch("actions/actions_product.php", {
+                method: "POST",
+                body: formData,
+            })
+            .then((response) => response.json())
+            .then((res) => {
+                if (res.status) {
+                    Swal.fire({
+                        title: "¡Eliminado!", 
+                        text: res.message, 
+                        icon: "success",
+                        confirmButtonColor: "#198754"
+                    }).then(() => location.reload());
+                } else {
+                    Swal.fire("Error", res.message, "error");
+                }
+            })
+            .catch((error) => {
+                console.error("Error:", error);
+                Swal.fire("Error", "Problema al intentar eliminar.", "error");
+            });
+        }
+    });
 } ```
 
 ## Archivo: ./public/js/adminlte.js
@@ -21204,86 +21280,109 @@ function confirmDelete(id, name) {
 
 ## Archivo: ./public/js/categories.js
  ```javascript
-    document.addEventListener("DOMContentLoaded", function() {
-        // Inicializar Modales
-        const modalCatInstance = new bootstrap.Modal(document.getElementById('modalCat'));
-        const modalDeleteInstance = new bootstrap.Modal(document.getElementById('modalDelete'));
+document.addEventListener("DOMContentLoaded", function() {
+    // Inicializar Modal de Categoría (Crear/Editar)
+    const modalCatInstance = new bootstrap.Modal(document.getElementById('modalCat'));
+    
+    // Exponer funciones globalmente
+    window.openModal = function(data = null) {
+        document.getElementById('formCat').reset();
+        const modalTitle = document.getElementById('modalTitle');
         
-        // Exponer funciones globalmente
-        window.openModal = function(data = null) {
-            document.getElementById('formCat').reset();
-            const modalTitle = document.getElementById('modalTitle');
-            
-            if(data) {
-                modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i> Editar Categoría';
-                document.getElementById('action').value = 'update';
-                document.getElementById('catId').value = data.id;
-                document.getElementById('catName').value = data.name;
-            } else {
-                modalTitle.innerHTML = '<i class="fas fa-plus-circle me-2"></i> Nueva Categoría';
-                document.getElementById('action').value = 'create';
-                document.getElementById('catId').value = '';
+        if(data) {
+            modalTitle.innerHTML = '<i class="fas fa-edit text-warning me-2"></i> Editar Categoría';
+            document.getElementById('action').value = 'update';
+            document.getElementById('catId').value = data.id;
+            document.getElementById('catName').value = data.name;
+        } else {
+            modalTitle.innerHTML = '<i class="fas fa-plus-circle me-2"></i> Nueva Categoría';
+            document.getElementById('action').value = 'create';
+            document.getElementById('catId').value = '';
+        }
+        modalCatInstance.show();
+    };
+
+    // Reemplazamos el modal de Bootstrap por SweetAlert2 para eliminar
+    window.confirmDelete = function(id, name) {
+        Swal.fire({
+            title: '¿Eliminar Categoría?',
+            html: `Estás a punto de eliminar <strong>${name}</strong>.<br>Los productos asociados podrían quedar sin categoría. Esta acción no se puede deshacer.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="fas fa-trash me-1"></i> Sí, Eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const fd = new FormData();
+                fd.append('action', 'delete');
+                fd.append('id', id);
+
+                fetch('actions/actions_category.php', { 
+                    method: 'POST', 
+                    body: fd 
+                })
+                .then(response => response.json())
+                .then(res => {
+                    if (res.status) {
+                        Swal.fire({
+                            title: '¡Eliminada!',
+                            text: res.message,
+                            icon: 'success',
+                            confirmButtonColor: '#198754'
+                        }).then(() => location.reload());
+                    } else {
+                        Swal.fire('Error', res.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire('Error', 'Ocurrió un error al intentar comunicar con el servidor.', 'error');
+                });
             }
-            modalCatInstance.show();
-        };
+        });
+    };
 
-        window.confirmDelete = function(id, name) {
-            document.getElementById('deleteCatId').value = id;
-            document.getElementById('deleteCatName').innerText = name;
-            modalDeleteInstance.show();
-        };
+    // Submit del Formulario (Crear/Actualizar) con SweetAlert2
+    document.getElementById('formCat').onsubmit = function(e) {
+        e.preventDefault();
+        
+        const btnSubmit = this.querySelector('button[type="submit"]');
+        const originalText = btnSubmit.innerHTML;
+        
+        // Estado de carga en el botón
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Guardando...';
 
-        window.executeDelete = function() {
-            const id = document.getElementById('deleteCatId').value;
-            const btnDelete = document.querySelector('#modalDelete .btn-danger');
-            const originalText = btnDelete.innerHTML;
-            
-            btnDelete.disabled = true;
-            btnDelete.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" ></span> Eliminando...';
-
-            const fd = new FormData();
-            fd.append('action', 'delete');
-            fd.append('id', id);
-
-            fetch('actions/actions_category.php', { 
-                method: 'POST', 
-                body: fd 
-            })
-            .then(() => {
-                location.reload();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                btnDelete.disabled = false;
-                btnDelete.innerHTML = originalText;
-                alert("Ocurrió un error al intentar eliminar la categoría.");
-            });
-        };
-
-        // Submit del Formulario
-        document.getElementById('formCat').onsubmit = function(e) {
-            e.preventDefault();
-            
-            const btnSubmit = this.querySelector('button[type="submit"]');
-            const originalText = btnSubmit.innerHTML;
-            
-            btnSubmit.disabled = true;
-            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" ></span> Guardando...';
-
-            fetch('actions/actions_category.php', {
-                method: 'POST',
-                body: new FormData(this)
-            }).then(() => {
-                location.reload();
-            }).catch(error => {
-                console.error('Error:', error);
+        fetch('actions/actions_category.php', {
+            method: 'POST',
+            body: new FormData(this)
+        })
+        .then(response => response.json())
+        .then(res => {
+            if(res.status) {
+                modalCatInstance.hide();
+                Swal.fire({
+                    title: '¡Éxito!',
+                    text: res.message,
+                    icon: 'success',
+                    confirmButtonColor: '#198754'
+                }).then(() => location.reload());
+            } else {
+                Swal.fire('Error', res.message, 'error');
                 btnSubmit.disabled = false;
                 btnSubmit.innerHTML = originalText;
-                alert("Ocurrió un error al guardar la categoría.");
-            });
-        };
-    });
- ```
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error', 'Ocurrió un error al intentar guardar la categoría.', 'error');
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = originalText;
+        });
+    };
+}); ```
 
 ## Archivo: ./public/js/config.js
  ```javascript
@@ -21425,11 +21524,12 @@ function confirmAction(task, actionType) {
 ## Archivo: ./public/js/customers.js
  ```javascript
 let modalCustomerInstance;
-
+let modalViewInstance;
 document.addEventListener("DOMContentLoaded", function() {
     // Inicializar modal
     modalCustomerInstance = new bootstrap.Modal(document.getElementById('modalCustomerForm'));
-
+    modalViewInstance = new bootstrap.Modal(document.getElementById("modalView"));
+    
     // Inicializar DataTable
     if ($.fn.DataTable) {
         $('#customersTable').DataTable({
@@ -21530,6 +21630,37 @@ function deleteCustomer(id, name) {
             });
         }
     });
+}
+
+function viewCustomer(c) {
+    if (!modalViewInstance) return alert('El modal aún no se ha inicializado.');
+
+    // Validar si los campos están vacíos para mostrar un texto por defecto
+    const documentText = c.document ? c.document : '<span class="text-muted fst-italic">No registrado</span>';
+    const phoneText = c.phone ? c.phone : '<span class="text-muted fst-italic">No registrado</span>';
+
+    const content = `
+        <div class="text-center mb-4">
+            <i class="fas fa-user-circle text-secondary" style="font-size: 4rem;"></i>
+        </div>
+        <ul class="list-group list-group-flush mb-3">
+            <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
+                <span class="text-muted fw-bold">Nombre:</span>
+                <span class="fw-bold text-primary">${c.name}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
+                <span class="text-muted fw-bold">Cédula / RIF:</span>
+                <span class="fw-bold">${documentText}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
+                <span class="text-muted fw-bold">Teléfono:</span>
+                <span class="fw-bold">${phoneText}</span>
+            </li>
+        </ul>
+    `;
+    
+    document.getElementById('viewContent').innerHTML = content;
+    modalViewInstance.show();
 } ```
 
 ## Archivo: ./public/js/dashboard.js
@@ -22247,7 +22378,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 
 ## Archivo: ./public/js/users.js
  ```javascript
-
+// Archivo: ./public/js/users.js
     const modalUser = new bootstrap.Modal(document.getElementById('modalUser'));
 
     function resetForm() {
@@ -22276,51 +22407,55 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
         modalUser.show();
     }
 
-    function saveUser(e) {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+function saveUser(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const btn = e.target.querySelector('button[type="submit"]');
+    
+    // Feedback visual en el botón
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando...';
 
-        fetch('actions/actions_user.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(r => r.json())
-        .then(res => {
-            if(res.status) {
-                location.reload();
-            } else {
-                alert("Error: " + res.message);
-                btn.disabled = false;
-                btn.innerHTML = 'Guardar Usuario';
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert("Error de conexión");
-            btn.disabled = false;
-            btn.innerHTML = 'Guardar Usuario';
-        });
-    }
-
-    function deleteUser(id) {
-        if(confirm('¿Estás seguro de eliminar este usuario? Perderá el acceso al sistema inmediatamente.')) {
-            const formData = new FormData();
-            formData.append('action', 'delete');
-            formData.append('id', id);
-
-            fetch('actions/actions_user.php', { method: 'POST', body: formData })
-            .then(r => r.json())
-            .then(res => {
-                if(res.status) location.reload();
-                else alert(res.message);
+    fetch('actions/actions_user.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        if(res.status) {
+            // Mensaje de éxito con SweetAlert2
+            Swal.fire({
+                title: "¡Logrado!",
+                text: res.message || "Operación realizada con éxito",
+                icon: "success",
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                location.reload(); // Recargamos después de que el usuario vea el mensaje
             });
+        } else {
+            // Mensaje de error con SweetAlert2
+            Swal.fire({
+                title: "Error",
+                text: res.message || "Hubo un problema al guardar",
+                icon: "error",
+                confirmButtonColor: "#dc3545"
+            });
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
-    }
+    })
+    .catch(err => {
+        console.error(err);
+        Swal.fire("Error crítico", "No se pudo conectar con el servidor", "error");
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
     // Función para Eliminar con SweetAlert2
-    function deleteUser2(id, username) {
+    function deleteUser(id, username) {
       Swal.fire({
         title: "¿Eliminar Usuario?",
         html: `Estás a punto de eliminar a <strong>${username}</strong>.<br>Esta acción no se puede deshacer.`,
@@ -22594,15 +22729,16 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 
 ## Archivo: ./public/layouts/modals/modals_admin.php
  ```php
-<div class="modal fade" id="modalInsert" tabindex="-1" >
-    <div class="modal-dialog modal-lg modal-dialog-centered"> <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
+<div class="modal fade" id="modalInsert" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <form id="formInsert" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i> Añadir Nuevo Producto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
                 <input type="hidden" name="action" value="create">
-                
+
                 <div class="row">
                     <div class="col-md-8 mb-3">
                         <label class="form-label fw-bold">Nombre del Producto <span class="text-danger">*</span></label>
@@ -22615,7 +22751,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
                         <label class="form-label fw-bold">Categoría <span class="text-danger">*</span></label>
                         <select name="category_id" class="form-select" required>
                             <option value="" disabled selected>Seleccione...</option>
-                            <?php foreach($categories as $c): ?>
+                            <?php foreach ($categories as $c): ?>
                                 <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -22689,9 +22825,9 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
     </div>
 </div>
 
-<div class="modal fade" id="modalEdit" tabindex="-1" >
+<div class="modal fade" id="modalEdit" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <form action="actions/actions_product.php" method="POST" class="modal-content shadow">
+        <form id="formEdit" method="POST" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i> Editar Producto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -22712,7 +22848,7 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
                         <label class="form-label fw-bold">Categoría <span class="text-danger">*</span></label>
                         <select name="category_id" id="edit_category" class="form-select" required>
                             <option value="" disabled selected>Seleccione...</option>
-                            <?php foreach($categories as $c): ?>
+                            <?php foreach ($categories as $c): ?>
                                 <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -22787,41 +22923,17 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 </div>
 
 
-<div class="modal fade" id="modalView" tabindex="-1" >
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+<div class="modal fade" id="modalView" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-info text-white">
                 <h5 class="modal-title"><i class="fas fa-info-circle me-2"></i> Detalles del Producto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" id="viewContent">
-                </div>
+            </div>
             <div class="modal-footer bg-light p-2">
-                 <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-
-<div class="modal fade" id="modalConfirmDelete" tabindex="-1" >
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-danger text-white border-0">
-                <h5 class="modal-title mx-auto">Confirmar Borrado</h5>
-            </div>
-            <div class="modal-body text-center py-4">
-                <div class="text-danger mb-3">
-                    <i class="fas fa-times-circle fa-4x animate__animated animate__pulse animate__infinite"></i>
-                </div>
-                <h5 class="fw-bold text-dark">¿Estás seguro?</h5>
-                <p class="text-muted px-2" id="deleteProductName"></p>
-                <small class="text-danger fw-bold uppercase">Esta acción es irreversible</small>
-            </div>
-            <div class="modal-footer justify-content-center border-0 pb-4">
-                <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancelar</button>
-                <a id="btnConfirmDelete" href="#" class="btn btn-danger px-4 shadow-sm">Sí, Eliminar</a>
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -22849,31 +22961,6 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
                 <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Guardar Cambios</button>
             </div>
         </form>
-    </div>
-</div>
-<div class="modal fade" id="modalDelete" tabindex="-1" >
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content custom-modal-dark">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i> Eliminar Categoría</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center py-4">
-                <div class="text-danger mb-3">
-                    <i class="fas fa-trash-alt fa-3x"></i>
-                </div>
-                <p class="mb-1">¿Estás seguro de que deseas eliminar la categoría?</p>
-                <h4 id="deleteCatName" class="fw-bold mb-3"></h4>
-                <div class="alert alert-warning text-start small mb-0">
-                    <i class="fas fa-info-circle me-1"></i> Los productos asociados podrían quedar sin categoría asignada. Esta acción no se puede deshacer.
-                </div>
-                <input type="hidden" id="deleteCatId">
-            </div>
-            <div class="modal-footer justify-content-center bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" onclick="executeDelete()"><i class="fas fa-trash me-1"></i> Sí, Eliminar</button>
-            </div>
-        </div>
     </div>
 </div>
  ```
@@ -22956,6 +23043,54 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 
 ## Archivo: ./public/layouts/modals/modals_customer.php
  ```php
+<div class="modal fade" id="modalCustomerForm" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="formCustomer" class="modal-content shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalCustomerTitle"><i class="fas fa-user-plus me-2"></i> Nuevo Cliente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" name="action" id="customerAction" value="create">
+                <input type="hidden" name="id" id="customerId">
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold small">Nombre Completo <span class="text-danger">*</span></label>
+                    <input type="text" name="name" id="customerName" class="form-control" required placeholder="Ej: Juan Pérez">
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold small">Cédula / RIF</label>
+                        <input type="text" name="document" id="customerDoc" class="form-control" placeholder="Ej: V-12345678">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold small">Teléfono</label>
+                        <input type="text" name="phone" id="customerPhone" class="form-control" placeholder="Ej: 0414-1234567">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary px-4 fw-bold" id="btnSaveCustomer">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="modal fade" id="modalView" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-info-circle me-2"></i> Detalles del Cliente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="viewContent">
+            </div>
+            <div class="modal-footer bg-light p-2">
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
  ```
 
 ## Archivo: ./public/layouts/modals/modals_pos.php
@@ -23072,7 +23207,6 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
         </div>
     </div>
 </div>
-
 <div class="modal fade" id="modalDefault" tabindex="-1" aria-labelledby="modalDefaultLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
@@ -23087,13 +23221,13 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
                     <div class="col-6">
                         <div class="p-3 border rounded bg-light">
                             <small class="text-muted d-block text-uppercase fw-bold">Total USD</small>
-                            <h4 class="text-success fw-bold mb-0">$0.00</h4>
+                            <h4 class="text-success fw-bold mb-0">$<?= number_format($resumenTotales['usd'], 2) ?></h4>
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="p-3 border rounded bg-light">
                             <small class="text-muted d-block text-uppercase fw-bold">Total BS</small>
-                            <h4 class="text-primary fw-bold mb-0">Bs. 0.00</h4>
+                            <h4 class="text-primary fw-bold mb-0">Bs. <?= number_format($resumenTotales['bs'], 2) ?></h4>
                         </div>
                     </div>
                 </div>
@@ -23102,16 +23236,24 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
 
                 <div class="list-group list-group-flush small">
                     <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                        <span><i class="fas fa-money-bill-wave me-2 text-muted"></i>Efectivo</span>
-                        <span class="fw-bold">$0.00</span>
+                        <span><i class="fas fa-money-bill-wave me-2 text-muted"></i>Efectivo (Bs y USD)</span>
+                        <span class="fw-bold">$<?= number_format($resumenTotales['efectivo_bs'] + $resumenTotales['efectivo_usd'], 2) ?></span>
                     </div>
                     <div class="list-group-item d-flex justify-content-between align-items-center px-0">
                         <span><i class="fas fa-mobile-alt me-2 text-muted"></i>Pago Móvil</span>
-                        <span class="fw-bold">$0.00</span>
+                        <span class="fw-bold">$<?= number_format($resumenTotales['pago_movil'], 2) ?></span>
                     </div>
                     <div class="list-group-item d-flex justify-content-between align-items-center px-0">
                         <span><i class="fas fa-credit-card me-2 text-muted"></i>Punto de Venta</span>
-                        <span class="fw-bold">$0.00</span>
+                        <span class="fw-bold">$<?= number_format($resumenTotales['punto'], 2) ?></span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="fas fa-exchange-alt me-2 text-muted"></i>Transferencia</span>
+                        <span class="fw-bold">$<?= number_format($resumenTotales['transferencia'], 2) ?></span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="fas fa-file-invoice-dollar me-2 text-muted"></i>Crédito (Por Cobrar)</span>
+                        <span class="fw-bold">$<?= number_format($resumenTotales['credito'], 2) ?></span>
                     </div>
                 </div>
             </div>
@@ -24289,6 +24431,7 @@ if (!$sale) {
 ## Archivo: ./public/users.php
  ```php
 <?php
+// Archivo: ./public/users.php
 require_once '../controllers/UserController.php';
 include 'layouts/head.php';
 include 'layouts/navbar.php';
@@ -24375,10 +24518,7 @@ include 'layouts/sidebar.php';
                                                 <button class="btn btn-sm btn-outline-warning me-1" onclick='editUser(<?= json_encode($u) ?>)' title="Editar">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(<?= $u['id'] ?>)" title="Eliminar">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteUser2(<?= $u['id'] ?>, '<?= addslashes(htmlspecialchars($u['username'])) ?>')" title="Eliminar">
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(<?= $u['id'] ?>, '<?= addslashes(htmlspecialchars($u['username'])) ?>')" title="Eliminar">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </td>

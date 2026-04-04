@@ -40,6 +40,7 @@ CREATE TABLE categories (
     name VARCHAR(100) NOT NULL,
     FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 );
+ALTER TABLE categories ADD COLUMN description TEXT NULL AFTER name;
 
 -- 5. Productos
 -- Depende de Categories y Tenants.

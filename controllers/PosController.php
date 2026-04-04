@@ -59,6 +59,38 @@ foreach($kpiQueries as $key => $query){
     }
 }
 
+// --- RESUMEN DE VENTAS (HOY) PARA EL MODAL ---
+$sqlResumen = "SELECT payment_method, SUM(total_amount_usd) as total_usd, SUM(total_amount_bs) as total_bs 
+               FROM sales 
+               WHERE tenant_id = :tid AND DATE(created_at) = CURDATE() 
+               GROUP BY payment_method";
+$stmtResumen = $db->prepare($sqlResumen);
+$stmtResumen->bindValue(':tid', $tenant_id, PDO::PARAM_INT);
+$stmtResumen->execute();
+$ventasHoyMetodos = $stmtResumen->fetchAll(PDO::FETCH_ASSOC);
+
+// Inicializamos el array con los métodos disponibles para evitar errores de variables no definidas
+$resumenTotales = [
+    'usd' => 0,
+    'bs' => 0,
+    'efectivo_bs' => 0,
+    'efectivo_usd' => 0,
+    'pago_movil' => 0,
+    'punto' => 0,
+    'transferencia' => 0,
+    'credito' => 0
+];
+
+// Asignamos los valores devueltos por la consulta
+foreach($ventasHoyMetodos as $v) {
+    $resumenTotales['usd'] += $v['total_usd'];
+    $resumenTotales['bs'] += $v['total_bs'];
+    
+    $metodo = $v['payment_method'];
+    if(isset($resumenTotales[$metodo])) {
+        $resumenTotales[$metodo] += $v['total_usd'];
+    }
+}
 $headerConfig = [
     'title'     => 'Punto de Venta (POS)',
     'colorico'  => 'success',
@@ -69,5 +101,6 @@ $headerConfig = [
         'text'   => ' Ventas de Hoy: <span class="text-success fw-bold"> $' . number_format($sales ?? 0, 2) . '</span> / <span class="text-primary fw-bold">Bs.' . number_format(($sales * $bcvRate) ?? 0, 2) . '</span>',
         'icon'   => 'fas fa-coins me-1',
         'class'  => 'btn btn-outline-primary mb-2 btn-sm text-start',
+        'target' => '#modalDefault' // Aseguramos el enlace con el modal
     ]
 ];

@@ -123,14 +123,14 @@
                 <div class="row g-3 text-center">
                     <div class="col-6">
                         <div class="p-3 border rounded bg-light">
-                            <small class="text-muted d-block text-uppercase fw-bold">Total $</small>
-                            <h4 class="text-success fw-bold mb-0">$0.00</h4>
+                            <small class="text-muted d-block text-uppercase fw-bold">Total USD</small>
+                            <h4 class="text-success fw-bold mb-0">$<?= number_format($resumenTotales['usd'], 2) ?></h4>
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="p-3 border rounded bg-light">
                             <small class="text-muted d-block text-uppercase fw-bold">Total BS</small>
-                            <h4 class="text-primary fw-bold mb-0">Bs. 0.00</h4>
+                            <h4 class="text-primary fw-bold mb-0">Bs. <?= number_format($resumenTotales['bs'], 2) ?></h4>
                         </div>
                     </div>
                 </div>
@@ -139,16 +139,24 @@
 
                 <div class="list-group list-group-flush small">
                     <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                        <span><i class="fas fa-money-bill-wave me-2 text-muted"></i>Efectivo</span>
-                        <span class="fw-bold">$0.00</span>
+                        <span><i class="fas fa-money-bill-wave me-2 text-muted"></i>Efectivo (Bs y USD)</span>
+                        <span class="fw-bold">$<?= number_format($resumenTotales['efectivo_bs'] + $resumenTotales['efectivo_usd'], 2) ?></span>
                     </div>
                     <div class="list-group-item d-flex justify-content-between align-items-center px-0">
                         <span><i class="fas fa-mobile-alt me-2 text-muted"></i>Pago Móvil</span>
-                        <span class="fw-bold">$0.00</span>
+                        <span class="fw-bold">$<?= number_format($resumenTotales['pago_movil'], 2) ?></span>
                     </div>
                     <div class="list-group-item d-flex justify-content-between align-items-center px-0">
                         <span><i class="fas fa-credit-card me-2 text-muted"></i>Punto de Venta</span>
-                        <span class="fw-bold">$0.00</span>
+                        <span class="fw-bold">$<?= number_format($resumenTotales['punto'], 2) ?></span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="fas fa-exchange-alt me-2 text-muted"></i>Transferencia</span>
+                        <span class="fw-bold">$<?= number_format($resumenTotales['transferencia'], 2) ?></span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="fas fa-file-invoice-dollar me-2 text-muted"></i>Crédito (Por Cobrar)</span>
+                        <span class="fw-bold">$<?= number_format($resumenTotales['credito'], 2) ?></span>
                     </div>
                 </div>
             </div>
