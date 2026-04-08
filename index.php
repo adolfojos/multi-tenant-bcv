@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MultiPOS | Gestión Unificada para tu Negocio</title>
-    
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="MTB App">
     <!-- Metadatos SEO -->
     <meta name="description" content="La solución integral para TPV, inventarios y gestión de mesas. Prueba MultiPOS gratis por 30 días.">
     <meta name="keywords" content="POS, Punto de Venta, Software de Ventas, Inventario, Gestión de Restaurantes">
@@ -19,7 +22,15 @@
     
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker registrado', reg))
+            .catch(err => console.log('Error al registrar SW', err));
+        });
+    }
+    </script>
     <!-- Estilos Personalizados -->
     <style>
         :root {

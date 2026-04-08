@@ -5,10 +5,8 @@ require_once '../../includes/Middleware.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// 1. Forzar respuesta JSON
 header('Content-Type: application/json');
 
-// 2. Seguridad: Solo admins autenticados pueden ejecutar estas acciones
 try {
     Middleware::checkAuth();
     Middleware::onlyAdmin();
@@ -25,21 +23,21 @@ try {
     $action = $_POST['action'] ?? '';
     $id     = $_POST['id'] ?? null;
     $name   = trim($_POST['name'] ?? '');
+    $desc   = trim($_POST['description'] ?? ''); // Capturamos la descripción
 
     $response = ['status' => false, 'message' => 'Acción no reconocida'];
 
-    // 3. Lógica de acciones
     switch ($action) {
         case 'create':
             if (empty($name)) throw new Exception("El nombre es obligatorio.");
-            if ($catObj->create($name)) {
+            if ($catObj->create($name, $desc)) {
                 $response = ['status' => true, 'message' => 'Creado con éxito'];
             }
             break;
 
         case 'update':
             if (empty($id) || empty($name)) throw new Exception("Datos insuficientes para actualizar.");
-            if ($catObj->update($id, $name)) {
+            if ($catObj->update($id, $name, $desc)) {
                 $response = ['status' => true, 'message' => 'Actualizado con éxito'];
             }
             break;
@@ -55,8 +53,7 @@ try {
     echo json_encode($response);
 
 } catch (Exception $e) {
-    // Captura cualquier error de la DB o de validación
-    http_response_code(400); // Opcional: indica un error de solicitud
+    http_response_code(400); 
     echo json_encode([
         'status' => false, 
         'message' => $e->getMessage()

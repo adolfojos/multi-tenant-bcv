@@ -9,28 +9,43 @@ class Category {
     }
 
     public function getAll() {
-        $sql = "SELECT * FROM categories WHERE tenant_id = :tid ORDER BY name ASC";
+        // Hacemos un LEFT JOIN con products para contar cuántos tiene cada categoría
+        $sql = "SELECT c.*, COUNT(p.id) as product_count 
+                FROM categories c
+                LEFT JOIN products p ON c.id = p.category_id AND p.tenant_id = c.tenant_id
+                WHERE c.tenant_id = :tid 
+                GROUP BY c.id
+                ORDER BY c.name ASC";
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([':tid' => $this->tenant_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function create($name) {
-        $sql = "INSERT INTO categories (tenant_id, name) VALUES (:tid, :n)";
+    public function create($name, $description = null) {
+        $sql = "INSERT INTO categories (tenant_id, name, description) VALUES (:tid, :n, :desc)";
         $stmt = $this->conn->prepare($sql);
-        return $stmt->execute([':tid' => $this->tenant_id, ':n' => $name]);
+        return $stmt->execute([
+            ':tid' => $this->tenant_id, 
+            ':n' => $name,
+            ':desc' => $description
+        ]);
     }
 
-    public function update($id, $name) {
-        $sql = "UPDATE categories SET name = :n WHERE id = :id AND tenant_id = :tid";
+    public function update($id, $name, $description = null) {
+        $sql = "UPDATE categories SET name = :n, description = :desc WHERE id = :id AND tenant_id = :tid";
         $stmt = $this->conn->prepare($sql);
-        return $stmt->execute([':n' => $name, ':id' => $id, ':tid' => $this->tenant_id]);
+        return $stmt->execute([
+            ':n' => $name, 
+            ':desc' => $description,
+            ':id' => $id, 
+            ':tid' => $this->tenant_id
+        ]);
     }
 
     public function delete($id) {
-        // OJO: Podrías validar primero si hay productos usando esta categoría
         $sql = "DELETE FROM categories WHERE id = :id AND tenant_id = :tid";
         $stmt = $this->conn->prepare($sql);
         return $stmt->execute([':id' => $id, ':tid' => $this->tenant_id]);
     }
 }
+?>

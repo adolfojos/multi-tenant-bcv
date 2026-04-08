@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", function() {
-    // Inicializar Modal de Categoría (Crear/Editar)
+// Inicializar Modal de Categoría (Crear/Editar)
     const modalCatInstance = new bootstrap.Modal(document.getElementById('modalCat'));
     
     // Exponer funciones globalmente
@@ -12,10 +12,13 @@ document.addEventListener("DOMContentLoaded", function() {
             document.getElementById('action').value = 'update';
             document.getElementById('catId').value = data.id;
             document.getElementById('catName').value = data.name;
+            // Pobar el nuevo campo de descripción
+            document.getElementById('catDesc').value = data.description || ''; 
         } else {
             modalTitle.innerHTML = '<i class="fas fa-plus-circle me-2"></i> Nueva Categoría';
             document.getElementById('action').value = 'create';
             document.getElementById('catId').value = '';
+            document.getElementById('catDesc').value = '';
         }
         modalCatInstance.show();
     };

@@ -9,8 +9,7 @@ include 'layouts/sidebar.php';
     <div class="app-content">
         <div class="container-fluid">
             <div class="row justify-content-center">
-                <div class="col-12 col-lg-8">
-                    <div class="card card-outline card-primary shadow-sm">
+                <div class="col-12 col-lg-10"> <div class="card card-outline card-primary shadow-sm">
                         <div class="card-header">
                             <h3 class="card-title">Listado de Categorías</h3>
                         </div>
@@ -28,6 +27,8 @@ include 'layouts/sidebar.php';
                                             <tr>
                                                 <th class="ps-4" style="width: 50px;">#</th>
                                                 <th>Nombre</th>
+                                                <th>Descripción</th>
+                                                <th class="text-center">Productos</th>
                                                 <th class="text-end pe-4" style="width: 150px;">Acciones</th>
                                             </tr>
                                         </thead>
@@ -40,9 +41,16 @@ include 'layouts/sidebar.php';
                                                 <td>
                                                     <span class="fw-bold"><?= htmlspecialchars($c['name']) ?></span>
                                                 </td>
+                                                <td>
+                                                    <span class="text-muted small"><?= !empty($c['description']) ? htmlspecialchars($c['description']) : '<i class="text-muted opacity-50">Sin descripción</i>' ?></span>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge <?= $c['product_count'] > 0 ? 'text-bg-info' : 'text-bg-secondary opacity-50' ?> rounded-pill">
+                                                        <?= $c['product_count'] ?> items
+                                                    </span>
+                                                </td>
                                                 <td class="text-end pe-4">
                                                     <div class="btn-group">
-                                                        <!-- Pasamos el array completo de forma segura -->
                                                         <button class="btn btn-sm btn-outline-info" 
                                                                 onclick='openModal(<?= json_encode($c, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)' 
                                                                 title="Editar">
