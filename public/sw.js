@@ -1,9 +1,9 @@
 const CACHE_NAME = 'mtb-v1';
 const urlsToCache = [
   '/',
-  '/index.php',
-  '/public/css/adminlte.min.css',
-  '/public/js/adminlte.min.js'
+  'index.php',
+  'public/css/adminlte.css',
+  'public/js/adminlte.js'
 ];
 
 // Instalación del Service Worker

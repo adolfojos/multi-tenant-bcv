@@ -1,11 +1,15 @@
 <!DOCTYPE html>
 <html lang="es" data-bs-theme="dark">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+   <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title><?= isset($pageTitle) ? $pageTitle : 'Mi Negocio' ?></title>
 
+    <link rel="manifest" href="public/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="MTB App">
     <!-- Meta Tags de Color y Tema -->
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
@@ -15,6 +19,15 @@
     <script>
         const theme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-bs-theme', theme);
+    </script>
+        <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('Service Worker registrado', reg))
+            .catch(err => console.log('Error al registrar SW', err));
+        });
+    }
     </script>
 
     <!-- 1. Tipografías -->
