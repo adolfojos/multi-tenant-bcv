@@ -997,31 +997,46 @@ class Category {
     }
 
     public function getAll() {
-        $sql = "SELECT * FROM categories WHERE tenant_id = :tid ORDER BY name ASC";
+        // Hacemos un LEFT JOIN con products para contar cuántos tiene cada categoría
+        $sql = "SELECT c.*, COUNT(p.id) as product_count 
+                FROM categories c
+                LEFT JOIN products p ON c.id = p.category_id AND p.tenant_id = c.tenant_id
+                WHERE c.tenant_id = :tid 
+                GROUP BY c.id
+                ORDER BY c.name ASC";
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([':tid' => $this->tenant_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function create($name) {
-        $sql = "INSERT INTO categories (tenant_id, name) VALUES (:tid, :n)";
+    public function create($name, $description = null) {
+        $sql = "INSERT INTO categories (tenant_id, name, description) VALUES (:tid, :n, :desc)";
         $stmt = $this->conn->prepare($sql);
-        return $stmt->execute([':tid' => $this->tenant_id, ':n' => $name]);
+        return $stmt->execute([
+            ':tid' => $this->tenant_id, 
+            ':n' => $name,
+            ':desc' => $description
+        ]);
     }
 
-    public function update($id, $name) {
-        $sql = "UPDATE categories SET name = :n WHERE id = :id AND tenant_id = :tid";
+    public function update($id, $name, $description = null) {
+        $sql = "UPDATE categories SET name = :n, description = :desc WHERE id = :id AND tenant_id = :tid";
         $stmt = $this->conn->prepare($sql);
-        return $stmt->execute([':n' => $name, ':id' => $id, ':tid' => $this->tenant_id]);
+        return $stmt->execute([
+            ':n' => $name, 
+            ':desc' => $description,
+            ':id' => $id, 
+            ':tid' => $this->tenant_id
+        ]);
     }
 
     public function delete($id) {
-        // OJO: Podrías validar primero si hay productos usando esta categoría
         $sql = "DELETE FROM categories WHERE id = :id AND tenant_id = :tid";
         $stmt = $this->conn->prepare($sql);
         return $stmt->execute([':id' => $id, ':tid' => $this->tenant_id]);
     }
-} ```
+}
+?> ```
 
 ## Archivo: ./includes/Credit.php
  ```php
@@ -1884,6 +1899,9 @@ class User {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MultiPOS | Gestión Unificada para tu Negocio</title>
+    <link rel="manifest" href="public/manifest.json">
+
+
     
     <!-- Metadatos SEO -->
     <meta name="description" content="La solución integral para TPV, inventarios y gestión de mesas. Prueba MultiPOS gratis por 30 días.">
@@ -1899,7 +1917,6 @@ class User {
     
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-
     <!-- Estilos Personalizados -->
     <style>
         :root {
@@ -2636,10 +2653,8 @@ require_once '../../includes/Middleware.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// 1. Forzar respuesta JSON
 header('Content-Type: application/json');
 
-// 2. Seguridad: Solo admins autenticados pueden ejecutar estas acciones
 try {
     Middleware::checkAuth();
     Middleware::onlyAdmin();
@@ -2656,21 +2671,21 @@ try {
     $action = $_POST['action'] ?? '';
     $id     = $_POST['id'] ?? null;
     $name   = trim($_POST['name'] ?? '');
+    $desc   = trim($_POST['description'] ?? ''); // Capturamos la descripción
 
     $response = ['status' => false, 'message' => 'Acción no reconocida'];
 
-    // 3. Lógica de acciones
     switch ($action) {
         case 'create':
             if (empty($name)) throw new Exception("El nombre es obligatorio.");
-            if ($catObj->create($name)) {
+            if ($catObj->create($name, $desc)) {
                 $response = ['status' => true, 'message' => 'Creado con éxito'];
             }
             break;
 
         case 'update':
             if (empty($id) || empty($name)) throw new Exception("Datos insuficientes para actualizar.");
-            if ($catObj->update($id, $name)) {
+            if ($catObj->update($id, $name, $desc)) {
                 $response = ['status' => true, 'message' => 'Actualizado con éxito'];
             }
             break;
@@ -2686,8 +2701,7 @@ try {
     echo json_encode($response);
 
 } catch (Exception $e) {
-    // Captura cualquier error de la DB o de validación
-    http_response_code(400); // Opcional: indica un error de solicitud
+    http_response_code(400); 
     echo json_encode([
         'status' => false, 
         'message' => $e->getMessage()
@@ -3379,8 +3393,7 @@ include 'layouts/sidebar.php';
     <div class="app-content">
         <div class="container-fluid">
             <div class="row justify-content-center">
-                <div class="col-12 col-lg-8">
-                    <div class="card card-outline card-primary shadow-sm">
+                <div class="col-12 col-lg-10"> <div class="card card-outline card-primary shadow-sm">
                         <div class="card-header">
                             <h3 class="card-title">Listado de Categorías</h3>
                         </div>
@@ -3398,6 +3411,8 @@ include 'layouts/sidebar.php';
                                             <tr>
                                                 <th class="ps-4" style="width: 50px;">#</th>
                                                 <th>Nombre</th>
+                                                <th>Descripción</th>
+                                                <th class="text-center">Productos</th>
                                                 <th class="text-end pe-4" style="width: 150px;">Acciones</th>
                                             </tr>
                                         </thead>
@@ -3410,9 +3425,16 @@ include 'layouts/sidebar.php';
                                                 <td>
                                                     <span class="fw-bold"><?= htmlspecialchars($c['name']) ?></span>
                                                 </td>
+                                                <td>
+                                                    <span class="text-muted small"><?= !empty($c['description']) ? htmlspecialchars($c['description']) : '<i class="text-muted opacity-50">Sin descripción</i>' ?></span>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge <?= $c['product_count'] > 0 ? 'text-bg-info' : 'text-bg-secondary opacity-50' ?> rounded-pill">
+                                                        <?= $c['product_count'] ?> items
+                                                    </span>
+                                                </td>
                                                 <td class="text-end pe-4">
                                                     <div class="btn-group">
-                                                        <!-- Pasamos el array completo de forma segura -->
                                                         <button class="btn btn-sm btn-outline-info" 
                                                                 onclick='openModal(<?= json_encode($c, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)' 
                                                                 title="Editar">
@@ -3472,21 +3494,21 @@ include 'layouts/sidebar.php';
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label small fw-bold">Nombre de la Empresa</label>
-                                        <input type="text" name="business_name" class="form-control" value="<?= htmlspecialchars($tenant_data['business_name'] ?? '') ?>" required>
+                                        <input type="text" name="business_name" class="form-control" autocomplete="business_name" value="<?= htmlspecialchars($tenant_data['business_name'] ?? '') ?>" required>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label small fw-bold">RIF / Identificación Fiscal</label>
-                                        <input type="text" name="rif" class="form-control" placeholder="J-12345678-0" value="<?= htmlspecialchars($tenant_data['rif'] ?? '') ?>">
+                                        <input type="text" name="rif" class="form-control" autocomplete="rif" placeholder="J-12345678-0" value="<?= htmlspecialchars($tenant_data['rif'] ?? '') ?>">
                                     </div>
                                     <div class="col-12">
                                         <label class="form-label small fw-bold">Dirección Comercial</label>
-                                        <textarea name="address" class="form-control" rows="2"><?= htmlspecialchars($tenant_data['address'] ?? '') ?></textarea>
+                                        <textarea name="address" class="form-control" autocomplete="address" rows="2"><?= htmlspecialchars($tenant_data['address'] ?? '') ?></textarea>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label small fw-bold">Teléfono de Contacto</label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="fas fa-phone"></i></span>
-                                            <input type="text" name="phone" class="form-control" placeholder="+58..." value="<?= htmlspecialchars($tenant_data['phone'] ?? '') ?>">
+                                            <input type="text" name="phone" class="form-control" autocomplete="phone" placeholder="+58..." value="<?= htmlspecialchars($tenant_data['phone'] ?? '') ?>">
                                         </div>
                                     </div>
                                     <div class="col-md-6">
@@ -21281,7 +21303,7 @@ function deleteProduct(id, name) {
 ## Archivo: ./public/js/categories.js
  ```javascript
 document.addEventListener("DOMContentLoaded", function() {
-    // Inicializar Modal de Categoría (Crear/Editar)
+// Inicializar Modal de Categoría (Crear/Editar)
     const modalCatInstance = new bootstrap.Modal(document.getElementById('modalCat'));
     
     // Exponer funciones globalmente
@@ -21294,10 +21316,13 @@ document.addEventListener("DOMContentLoaded", function() {
             document.getElementById('action').value = 'update';
             document.getElementById('catId').value = data.id;
             document.getElementById('catName').value = data.name;
+            // Pobar el nuevo campo de descripción
+            document.getElementById('catDesc').value = data.description || ''; 
         } else {
             modalTitle.innerHTML = '<i class="fas fa-plus-circle me-2"></i> Nueva Categoría';
             document.getElementById('action').value = 'create';
             document.getElementById('catId').value = '';
+            document.getElementById('catDesc').value = '';
         }
         modalCatInstance.show();
     };
@@ -22619,25 +22644,19 @@ function saveUser(e) {
 <!DOCTYPE html>
 <html lang="es" data-bs-theme="dark">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <title><?= isset($pageTitle) ? $pageTitle : 'Mi Negocio' ?></title>
-
-    <!-- Meta Tags de Color y Tema -->
+   <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
-
+    <title><?= isset($pageTitle) ? $pageTitle : 'Mi Negocio' ?></title>
     <!-- Script de Tema (Ejecutar lo antes posible para evitar parpadeo blanco) -->
     <script>
         const theme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-bs-theme', theme);
     </script>
-
     <!-- 1. Tipografías -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q=" crossorigin="anonymous" />
-
     <!-- 2. Plugins de Terceros (CSS) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous" />
@@ -22943,27 +22962,30 @@ function saveUser(e) {
  ```php
 <div class="modal fade" id="modalCat" tabindex="-1" aria-labelledby="modalTitle" >
     <div class="modal-dialog modal-dialog-centered">
-        <form id="formCat" class="modal-content">
+        <form id="formCat" class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="modalTitle"><i class="fas fa-tag me-2"></i> Categoría</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-4">
                 <input type="hidden" name="action" id="action" value="create">
                 <input type="hidden" name="id" id="catId">
                 <div class="mb-3">
-                    <label for="catName" class="form-label">Nombre de la Categoría <span class="text-danger">*</span></label>
+                    <label for="catName" class="form-label fw-bold small">Nombre de la Categoría <span class="text-danger">*</span></label>
                     <input type="text" name="name" id="catName" class="form-control" placeholder="Ej: Lubricantes, Filtros..." required>
                 </div>
+                <div class="mb-2">
+                    <label for="catDesc" class="form-label fw-bold small">Descripción (Opcional)</label>
+                    <textarea name="description" id="catDesc" class="form-control" rows="2" placeholder="Breve detalle sobre esta categoría..."></textarea>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Guardar Cambios</button>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary fw-bold"><i class="fas fa-save me-1"></i> Guardar Cambios</button>
             </div>
         </form>
     </div>
-</div>
- ```
+</div> ```
 
 ## Archivo: ./public/layouts/modals/modals_credits.php
  ```php
@@ -23065,7 +23087,7 @@ function saveUser(e) {
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label fw-bold small">Teléfono</label>
-                        <input type="text" name="phone" id="customerPhone" class="form-control" placeholder="Ej: 0414-1234567">
+                        <input type="text" name="phone" id="customerPhone" class="form-control" autocomplete="phone" placeholder="Ej: 0414-1234567">
                     </div>
                 </div>
             </div>
@@ -23371,19 +23393,19 @@ function saveUser(e) {
                         <label class="form-label small fw-bold">Nombre de Usuario</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-at"></i></span>
-                            <input type="text" name="username" id="username" class="form-control" required placeholder="ej: adolfo_dev">
+                            <input type="text" name="username" id="username" class="form-control" autocomplete="username" required placeholder="ej: adolfo_dev">
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Nombre Completo</label>
-                        <input type="text" name="full_name" id="full_name" class="form-control" required>
+                        <input type="text" name="full_name" id="full_name" class="form-control" autocomplete="full_name" required>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label small fw-bold">Contraseña</label>
-                            <input type="password" name="password" id="password" class="form-control" placeholder="••••••••">
+                            <input type="password" name="password" id="password" class="form-control" autocomplete="new-password" placeholder="••••••••">
                             <div id="pwHelp" class="form-text small" style="display:none;">Dejar en blanco para mantener actual.</div>
                         </div>
                         <div class="col-md-6 mb-3">

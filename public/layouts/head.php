@@ -3,36 +3,17 @@
 <head>
    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title><?= isset($pageTitle) ? $pageTitle : 'Mi Negocio' ?></title>
-
-    <link rel="manifest" href="public/manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="apple-mobile-web-app-title" content="MTB App">
-    <!-- Meta Tags de Color y Tema -->
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
-
+    <title><?= isset($pageTitle) ? $pageTitle : 'Mi Negocio' ?></title>
     <!-- Script de Tema (Ejecutar lo antes posible para evitar parpadeo blanco) -->
     <script>
         const theme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-bs-theme', theme);
     </script>
-        <script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-            .then(reg => console.log('Service Worker registrado', reg))
-            .catch(err => console.log('Error al registrar SW', err));
-        });
-    }
-    </script>
-
     <!-- 1. Tipografías -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q=" crossorigin="anonymous" />
-
     <!-- 2. Plugins de Terceros (CSS) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous" />

@@ -14,19 +14,19 @@
                         <label class="form-label small fw-bold">Nombre de Usuario</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-at"></i></span>
-                            <input type="text" name="username" id="username" class="form-control" required placeholder="ej: adolfo_dev">
+                            <input type="text" name="username" id="username" class="form-control" autocomplete="username" required placeholder="ej: adolfo_dev">
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Nombre Completo</label>
-                        <input type="text" name="full_name" id="full_name" class="form-control" required>
+                        <input type="text" name="full_name" id="full_name" class="form-control" autocomplete="full_name" required>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label small fw-bold">Contraseña</label>
-                            <input type="password" name="password" id="password" class="form-control" placeholder="••••••••">
+                            <input type="password" name="password" id="password" class="form-control" autocomplete="new-password" placeholder="••••••••">
                             <div id="pwHelp" class="form-text small" style="display:none;">Dejar en blanco para mantener actual.</div>
                         </div>
                         <div class="col-md-6 mb-3">

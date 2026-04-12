@@ -19,21 +19,21 @@ include 'layouts/sidebar.php';
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label small fw-bold">Nombre de la Empresa</label>
-                                        <input type="text" name="business_name" class="form-control" value="<?= htmlspecialchars($tenant_data['business_name'] ?? '') ?>" required>
+                                        <input type="text" name="business_name" class="form-control" autocomplete="business_name" value="<?= htmlspecialchars($tenant_data['business_name'] ?? '') ?>" required>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label small fw-bold">RIF / Identificación Fiscal</label>
-                                        <input type="text" name="rif" class="form-control" placeholder="J-12345678-0" value="<?= htmlspecialchars($tenant_data['rif'] ?? '') ?>">
+                                        <input type="text" name="rif" class="form-control" autocomplete="rif" placeholder="J-12345678-0" value="<?= htmlspecialchars($tenant_data['rif'] ?? '') ?>">
                                     </div>
                                     <div class="col-12">
                                         <label class="form-label small fw-bold">Dirección Comercial</label>
-                                        <textarea name="address" class="form-control" rows="2"><?= htmlspecialchars($tenant_data['address'] ?? '') ?></textarea>
+                                        <textarea name="address" class="form-control" autocomplete="address" rows="2"><?= htmlspecialchars($tenant_data['address'] ?? '') ?></textarea>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label small fw-bold">Teléfono de Contacto</label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="fas fa-phone"></i></span>
-                                            <input type="text" name="phone" class="form-control" placeholder="+58..." value="<?= htmlspecialchars($tenant_data['phone'] ?? '') ?>">
+                                            <input type="text" name="phone" class="form-control" autocomplete="phone" placeholder="+58..." value="<?= htmlspecialchars($tenant_data['phone'] ?? '') ?>">
                                         </div>
                                     </div>
                                     <div class="col-md-6">

@@ -20,7 +20,7 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label fw-bold small">Teléfono</label>
-                        <input type="text" name="phone" id="customerPhone" class="form-control" placeholder="Ej: 0414-1234567">
+                        <input type="text" name="phone" id="customerPhone" class="form-control" autocomplete="phone" placeholder="Ej: 0414-1234567">
                     </div>
                 </div>
             </div>
