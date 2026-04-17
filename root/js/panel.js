@@ -163,23 +163,29 @@ document.addEventListener("DOMContentLoaded", function () {
         body: formData,
       })
         .then((response) => response.json())
-        .then((res) => {
-          if (res.status) {
-            modalInstance.hide();
-            Swal.fire({
-              title: "¡Éxito!",
-              text: res.message,
-              icon: "success",
-              confirmButtonColor: "#198754",
-              timer: 2000,
-              showConfirmButton: false,
-            }).then(() => location.reload());
-          } else {
-            Swal.fire("Error", res.message, "error");
-            btnSubmit.disabled = false;
-            btnSubmit.innerHTML = originalText;
-          }
-        })
+.then(res => {
+                if (res.status) {
+                    modalInstance.hide();
+                    Swal.fire({
+                        title: '¡Éxito!',
+                        text: res.message,
+                        icon: 'success',
+                        confirmButtonColor: '#198754',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        // NUEVO: Si la respuesta trae un ID de pago, abrimos el recibo
+                        if (res.payment_id) {
+                            window.open(`receipt.php?id=${res.payment_id}`, '_blank');
+                        }
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = originalText;
+                }
+            })
         .catch((error) => {
           console.error("Error:", error);
           Swal.fire(

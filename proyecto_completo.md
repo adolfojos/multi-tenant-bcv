@@ -588,6 +588,40 @@ $headerConfig = [
 ];
 ?> ```
 
+## Archivo: ./controllers/delete_sale.php
+ ```php
+<?php
+// Archivo: ./controllers/delete_sale.php
+require_once '../includes/Middleware.php';
+require_once '../config/db.php';
+require_once '../includes/Sale.php';
+
+if (session_status() === PHP_SESSION_NONE) session_start();
+Middleware::checkAuth();
+Middleware::onlyAdmin(); // Solo administradores pueden borrar definitivamente
+
+header('Content-Type: application/json');
+
+// Validar que sea una petición POST y traiga el ID
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['id'])) {
+    echo json_encode(["success" => false, "message" => "Solicitud no válida."]);
+    exit;
+}
+
+$db = (new Database())->getConnection();
+$tenant_id = $_SESSION['tenant_id'] ?? 1;
+$user_id = $_SESSION['user_id'] ?? 1;
+$sale_id = (int)$_POST['id'];
+
+$saleObj = new Sale($db, $tenant_id, $user_id);
+$result = $saleObj->deleteSale($sale_id);
+
+if ($result['status'] === 'success') {
+    echo json_encode(["success" => true, "message" => $result['message']]);
+} else {
+    echo json_encode(["success" => false, "message" => $result['message']]);
+} ```
+
 ## Archivo: ./controllers/PosController.php
  ```php
 <?php
@@ -1815,6 +1849,60 @@ class Sale
             return ["status" => "error", "message" => $e->getMessage()];
         }
     }
+    public function deleteSale($sale_id)
+    {
+        try {
+            $this->conn->beginTransaction();
+
+            // 1. Verificar existencia y estado actual de la venta
+            $stmt = $this->conn->prepare("SELECT status, payment_method FROM sales WHERE id = ? AND tenant_id = ? FOR UPDATE");
+            $stmt->execute([$sale_id, $this->tenant_id]);
+            $sale = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$sale) throw new Exception("Venta no encontrada.");
+
+            // 2. Si la venta NO estaba anulada, devolvemos el stock primero
+            if ($sale['status'] !== 'anulada') {
+                $items = $this->getSaleItems($sale_id);
+                $sqlStock = "UPDATE products SET stock = stock + ? WHERE id = ? AND tenant_id = ?";
+                $stmtStock = $this->conn->prepare($sqlStock);
+                foreach ($items as $item) {
+                    $stmtStock->execute([$item['quantity'], $item['product_id'], $this->tenant_id]);
+                }
+            }
+
+            // 3. Eliminar los items de la venta
+            $stmtDelItems = $this->conn->prepare("DELETE FROM sale_items WHERE sale_id = ?");
+            $stmtDelItems->execute([$sale_id]);
+
+            // 4. Si fue crédito, eliminar los abonos y el crédito asociado
+            if ($sale['payment_method'] === 'credito') {
+                $stmtGetCred = $this->conn->prepare("SELECT id FROM credits WHERE sale_id = ? AND tenant_id = ?");
+                $stmtGetCred->execute([$sale_id, $this->tenant_id]);
+                $credit = $stmtGetCred->fetch(PDO::FETCH_ASSOC);
+
+                if ($credit) {
+                    // Borrar pagos asociados al crédito
+                    $stmtDelPay = $this->conn->prepare("DELETE FROM credit_payments WHERE credit_id = ? AND tenant_id = ?");
+                    $stmtDelPay->execute([$credit['id'], $this->tenant_id]);
+                    
+                    // Borrar el registro del crédito
+                    $stmtDelCred = $this->conn->prepare("DELETE FROM credits WHERE id = ? AND tenant_id = ?");
+                    $stmtDelCred->execute([$credit['id'], $this->tenant_id]);
+                }
+            }
+
+            // 5. Finalmente, eliminar el encabezado de la venta
+            $stmtDelSale = $this->conn->prepare("DELETE FROM sales WHERE id = ? AND tenant_id = ?");
+            $stmtDelSale->execute([$sale_id, $this->tenant_id]);
+
+            $this->conn->commit();
+            return ["status" => "success", "message" => "Venta eliminada permanentemente y stock restaurado."];
+        } catch (Exception $e) {
+            if ($this->conn->inTransaction()) $this->conn->rollBack();
+            return ["status" => "error", "message" => $e->getMessage()];
+        }
+    }
 }
  ```
 
@@ -1889,6 +1977,7 @@ class User {
         }
         return ['status' => false, 'message' => 'Error al eliminar de la base de datos.'];
     }
+    
 } ```
 
 ## Archivo: ./index.php
@@ -21746,6 +21835,77 @@ function viewCustomer(c) {
         sales_chart.render();
     }); ```
 
+## Archivo: ./public/js/deleteSalePerm.js
+ ```javascript
+
+// Forzamos la función al objeto global window para que el onclick la encuentre siempre
+window.deleteSalePerm = function(id) {
+    // 1. Guardar el ID en una variable global
+    window.currentSaleIdToDelete = id;
+    
+    // 2. Actualizar el texto del modal si existe el elemento
+    const span = document.getElementById('spanTicketBorrar');
+    if (span) span.textContent = '#' + id;
+    
+    // 3. Mostrar el modal de Bootstrap
+    const modalEl = document.getElementById('modalConfirmBorrar');
+    if (modalEl) {
+        const modalBorrar = new bootstrap.Modal(modalEl);
+        modalBorrar.show();
+    } else {
+        // Si por alguna razón el modal no carga, usamos un confirm estándar de respaldo
+        if (confirm('¿Estás seguro de borrar definitivamente la venta #' + id + '? Esta acción no se puede deshacer.')) {
+            ejecutarBorrado(id);
+        }
+    }
+};
+
+// Función separada para la petición AJAX
+function ejecutarBorrado(id) {
+    const btn = document.getElementById('btnConfirmarBorrar');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    }
+
+    const formData = new FormData();
+    formData.append('id', id);
+
+    fetch('controllers/delete_sale.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'Sí, Borrar Venta';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error crítico al procesar la solicitud.');
+    });
+}
+
+// Asignar el evento al botón del modal una vez que el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    const btnConfirm = document.getElementById('btnConfirmarBorrar');
+    if (btnConfirm) {
+        btnConfirm.onclick = function() {
+            if (window.currentSaleIdToDelete) {
+                ejecutarBorrado(window.currentSaleIdToDelete);
+            }
+        };
+    }
+});
+ ```
+
 ## Archivo: ./public/js/login.js
  ```javascript
     document.addEventListener('DOMContentLoaded', function() {
@@ -22399,7 +22559,9 @@ document.getElementById('btnExportExcel').addEventListener('click', function() {
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
-}); ```
+});
+
+ ```
 
 ## Archivo: ./public/js/users.js
  ```javascript
@@ -23373,6 +23535,24 @@ function saveUser(e) {
             </div>
         </div>
     </div>
+</div>
+<div class="modal fade" id="modalConfirmBorrar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="fas fa-trash-alt me-2"></i> Confirmar Borrado</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="fs-5 mb-0">¿Estás completamente seguro de que deseas <strong class="text-danger">BORRAR DEFINITIVAMENTE</strong> la venta <span id="spanTicketBorrar" class="text-danger fw-bold"></span>?</p>
+                <p class="text-muted small mt-2">Esta acción borrará el registro de la base de datos por completo y restaurará el stock (si no estaba anulada). <strong>Esta acción NO se puede deshacer.</strong></p>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarBorrar">Sí, Borrar Venta</button>
+            </div>
+        </div>
+    </div>
 </div> ```
 
 ## Archivo: ./public/layouts/modals/modals_users.php
@@ -24230,7 +24410,7 @@ include 'layouts/sidebar.php';
                                             </td>
 
                                             <td>
-                                                
+
                                                 <span class="badge bg-light border text-warning text-capitalize">
                                                     <?= str_replace('_', ' ', htmlspecialchars($s['payment_method'])) ?>
                                                 </span>
@@ -24242,7 +24422,6 @@ include 'layouts/sidebar.php';
 
                                             <td class="fw-bold text-success">$ <?= number_format($s['total_amount_usd'], 2) ?></td>
                                             <td class="fw-bold">Bs. <?= number_format($s['total_amount_bs'] ?? 0, 2) ?></td>
-
                                             <td class="text-end pe-4">
                                                 <div class="btn-group shadow-sm">
                                                     <a href="ticket.php?id=<?= $s['id'] ?>" target="_blank" class="btn btn-sm btn-outline-secondary me-1" title="Ver Ticket">
@@ -24255,10 +24434,13 @@ include 'layouts/sidebar.php';
                                                         <i class="fas fa-print"></i>
                                                     </button>
                                                     <?php if ($s['status'] !== 'anulada'): ?>
-                                                        <button type="button" class="btn btn-sm btn-outline-danger me-1" onclick="cancelSale(<?= $s['id'] ?>)" title="Anular Venta">
-                                                            <i class="fas fa-times-circle"></i>
-                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-outline-warning me-1" onclick="cancelSale(<?= $s['id'] ?>)" title="Anular Venta">
+                                                            <i class="fas fa-ban"></i> </button>
                                                     <?php endif; ?>
+
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSalePerm(<?= $s['id'] ?>)" title="Borrar Definitivamente">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -24277,9 +24459,10 @@ include 'layouts/sidebar.php';
     </div>
 </main>
 <?php
-    include 'layouts/footer.php';
-    include 'layouts/modals/modals_sales_history.php';
+include 'layouts/footer.php';
+include 'layouts/modals/modals_sales_history.php';
 ?>
+<script src="js/deleteSalePerm.js"></script>
 <script src="js/sales_history.js"></script>
 </body>
 
@@ -24579,7 +24762,13 @@ include 'layouts/modals/modals_users.php';
 session_start();
 require_once '../config/db.php';
 
-if (!isset($_SESSION['is_superadmin'])) { header("Location: login.php"); exit; }
+// Forzar respuesta JSON
+header('Content-Type: application/json');
+
+if (!isset($_SESSION['is_superadmin'])) {
+    echo json_encode(['status' => false, 'message' => 'Acceso no autorizado.']);
+    exit;
+}
 
 $database = new Database();
 $conn = $database->getConnection();
@@ -24589,65 +24778,1424 @@ $action = $_POST['action'] ?? '';
 try {
     // 1. CREAR NUEVA TIENDA
     if ($action === 'create_tenant') {
-        $name = $_POST['name'];
-        $rif = $_POST['rif'];
-        $user = $_POST['admin_user'];
-        $pass = password_hash($_POST['admin_pass'], PASSWORD_DEFAULT);
-        $months = (int)$_POST['months'];
+        $name = trim($_POST['name'] ?? '');
+        $rif = trim($_POST['rif'] ?? '');
+        $user = trim($_POST['admin_user'] ?? '');
+        $passInput = $_POST['admin_pass'] ?? '';
+        $months = (int)($_POST['months'] ?? 1);
 
-        // Generar datos
+        if (empty($name) || empty($user) || empty($passInput)) {
+            throw new Exception("Faltan datos obligatorios.");
+        }
+
+        $pass = password_hash($passInput, PASSWORD_DEFAULT);
         $expiration = date('Y-m-d', strtotime("+$months months"));
         $license = strtoupper(substr(md5(uniqid()), 0, 10));
 
         $conn->beginTransaction();
 
-        // Insertar Tienda
         $sql = "INSERT INTO tenants (business_name, rif, license_key, expiration_date, status) VALUES (?, ?, ?, ?, 'active')";
         $stmt = $conn->prepare($sql);
         $stmt->execute([$name, $rif, $license, $expiration]);
         $tenantId = $conn->lastInsertId();
 
-        // Insertar Usuario Admin para esa tienda
-        $sqlUser = "INSERT INTO users (username, password, tenant_id) VALUES (?, ?, ?)";
+        $sqlUser = "INSERT INTO users (username, password, tenant_id, role) VALUES (?, ?, ?, 'admin')";
         $stmtUser = $conn->prepare($sqlUser);
         $stmtUser->execute([$user, $pass, $tenantId]);
 
         $conn->commit();
+        echo json_encode(['status' => true, 'message' => 'Tienda y administrador creados con éxito.']);
     }
 
     // 2. RENOVAR LICENCIA
-    if ($action === 'renew') {
-        $id = $_POST['id'];
+    // 2. RENOVAR LICENCIA Y REGISTRAR PAGO
+    elseif ($action === 'renew') {
+        $id = (int)$_POST['id'];
         $months = (int)$_POST['months'];
+        $amount = (float)$_POST['amount'];
+        $method = trim($_POST['payment_method'] ?? '');
+        $reference = trim($_POST['reference'] ?? '');
+
+        if ($amount <= 0 || empty($method)) {
+            throw new Exception("Debes ingresar el monto y el método de pago.");
+        }
+
+        $conn->beginTransaction();
+
+        // A. Actualizar expiración de la tienda
         $sql = "UPDATE tenants SET expiration_date = DATE_ADD(expiration_date, INTERVAL ? MONTH), status='active' WHERE id=?";
         $stmt = $conn->prepare($sql);
         $stmt->execute([$months, $id]);
+
+        // B. Registrar el pago en el historial
+        $sqlPay = "INSERT INTO tenant_payments (tenant_id, amount_usd, payment_method, reference, months_added) VALUES (?, ?, ?, ?, ?)";
+        $stmtPay = $conn->prepare($sqlPay);
+        $stmtPay->execute([$id, $amount, $method, $reference, $months]);
+
+        // Obtener el ID del pago para generar el recibo
+        $paymentId = $conn->lastInsertId();
+
+        $conn->commit();
+
+        echo json_encode([
+            'status' => true,
+            'message' => 'Pago registrado y suscripción renovada.',
+            'payment_id' => $paymentId
+        ]);
     }
 
-    // 3. CAMBIAR ESTADO
-    if ($action === 'toggle_status') {
-        $id = $_POST['id'];
-        $status = $_POST['status'];
+    // 3. CAMBIAR ESTADO (Activar / Suspender)
+    elseif ($action === 'toggle_status') {
+        $id = (int)$_POST['id'];
+        $status = $_POST['status']; // 'active' o 'suspended'
         $sql = "UPDATE tenants SET status=? WHERE id=?";
         $stmt = $conn->prepare($sql);
         $stmt->execute([$status, $id]);
+
+        $msg = $status === 'active' ? 'Tienda activada nuevamente.' : 'Tienda suspendida.';
+        echo json_encode(['status' => true, 'message' => $msg]);
     }
 
     // 4. ACTUALIZAR BCV
-    if ($action === 'update_bcv') {
-        $rate = $_POST['rate'];
+    elseif ($action === 'update_bcv') {
+        $rate = (float)$_POST['rate'];
+        if ($rate <= 0) throw new Exception("La tasa debe ser mayor a 0.");
+
         $sql = "UPDATE system_settings SET bcv_rate=?, last_update=NOW() WHERE id=1";
         $stmt = $conn->prepare($sql);
         $stmt->execute([$rate]);
+
+        echo json_encode(['status' => true, 'message' => 'Tasa BCV global actualizada.']);
+    }
+    // 5. OBTENER DETALLES (VER / EDITAR)
+    elseif ($action === 'get_tenant') {
+        $id = (int)$_POST['id'];
+
+        // Obtenemos los datos de la tienda y su usuario administrador principal
+        $sql = "SELECT t.*, u.username as admin_user FROM tenants t 
+                LEFT JOIN users u ON t.id = u.tenant_id AND u.role = 'admin' 
+                WHERE t.id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([$id]);
+        $tenant = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($tenant) {
+            echo json_encode(['status' => true, 'data' => $tenant]);
+        } else {
+            throw new Exception("Tienda no encontrada.");
+        }
     }
 
-    header("Location: panel.php?msg=success");
+    // 6. EDITAR TIENDA
+    elseif ($action === 'edit_tenant') {
+        $id = (int)$_POST['id'];
+        $name = trim($_POST['name'] ?? '');
+        $rif = trim($_POST['rif'] ?? '');
 
+        if (empty($name)) throw new Exception("El nombre del negocio no puede estar vacío.");
+
+        $conn->beginTransaction();
+
+        $sql = "UPDATE tenants SET business_name=?, rif=? WHERE id=?";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([$name, $rif, $id]);
+
+        // Si el SuperAdmin escribió una nueva contraseña, se actualiza
+        if (!empty($_POST['new_password'])) {
+            $pass = password_hash($_POST['new_password'], PASSWORD_DEFAULT);
+            $sqlUser = "UPDATE users SET password=? WHERE tenant_id=? AND role='admin'";
+            $stmtUser = $conn->prepare($sqlUser);
+            $stmtUser->execute([$pass, $id]);
+        }
+
+        $conn->commit();
+        echo json_encode(['status' => true, 'message' => 'Datos de la tienda actualizados.']);
+    }
+
+    // 7. ELIMINAR DEFINITIVAMENTE (HARD DELETE)
+    elseif ($action === 'delete_tenant') {
+        $id = (int)$_POST['id'];
+
+        $conn->beginTransaction();
+
+        // NOTA: Si tu base de datos no tiene "ON DELETE CASCADE", debes eliminar los registros 
+        // relacionados primero (productos, categorías, ventas, etc.)
+        $conn->prepare("DELETE FROM users WHERE tenant_id=?")->execute([$id]);
+        $conn->prepare("DELETE FROM tenants WHERE id=?")->execute([$id]);
+
+        $conn->commit();
+        echo json_encode(['status' => true, 'message' => 'Tienda eliminada permanentemente del sistema.']);
+    }
+    // ==========================================
+    // MÓDULO DE PLANES (SaaS)
+    // ==========================================
+
+    // 8. CREAR O EDITAR PLAN
+    elseif ($action === 'save_plan') {
+        $id = !empty($_POST['id']) ? (int)$_POST['id'] : null;
+        $name = trim($_POST['name'] ?? '');
+        $price = (float)($_POST['price_usd'] ?? 0);
+        $max_users = (int)($_POST['max_users'] ?? 0);
+        $max_products = (int)($_POST['max_products'] ?? 0);
+        $description = trim($_POST['description'] ?? '');
+
+        if (empty($name)) throw new Exception("El nombre del plan es obligatorio.");
+
+        if ($id) {
+            // Actualizar plan existente
+            $sql = "UPDATE plans SET name=?, price_usd=?, max_users=?, max_products=?, description=? WHERE id=?";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute([$name, $price, $max_users, $max_products, $description, $id]);
+            $msg = "Plan actualizado correctamente.";
+        } else {
+            // Crear nuevo plan
+            $sql = "INSERT INTO plans (name, price_usd, max_users, max_products, description) VALUES (?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute([$name, $price, $max_users, $max_products, $description]);
+            $msg = "Nuevo plan creado exitosamente.";
+        }
+        
+        echo json_encode(['status' => true, 'message' => $msg]);
+    }
+
+    // 9. OBTENER DATOS DE UN PLAN (Para el Modal de Edición)
+    elseif ($action === 'get_plan') {
+        $id = (int)$_POST['id'];
+        $stmt = $conn->prepare("SELECT * FROM plans WHERE id = ?");
+        $stmt->execute([$id]);
+        $plan = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($plan) echo json_encode(['status' => true, 'data' => $plan]);
+        else throw new Exception("Plan no encontrado.");
+    }
+
+    // 10. ELIMINAR PLAN
+    elseif ($action === 'delete_plan') {
+        $id = (int)$_POST['id'];
+        
+        // Evitar borrar el plan si hay tiendas usándolo
+        $check = $conn->prepare("SELECT COUNT(*) FROM tenants WHERE plan_id = ?");
+        $check->execute([$id]);
+        if ($check->fetchColumn() > 0) {
+            throw new Exception("No puedes eliminar este plan porque hay tiendas usándolo. Cambia el plan de esas tiendas primero.");
+        }
+
+        $conn->prepare("DELETE FROM plans WHERE id=?")->execute([$id]);
+        echo json_encode(['status' => true, 'message' => 'Plan eliminado.']);
+    }
+
+    // 11. CAMBIAR PLAN A UNA TIENDA (Upsell / Downsell)
+    elseif ($action === 'change_tenant_plan') {
+        $tenant_id = (int)$_POST['tenant_id'];
+        $plan_id = (int)$_POST['plan_id'];
+
+        $sql = "UPDATE tenants SET plan_id=? WHERE id=?";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([$plan_id, $tenant_id]);
+
+        echo json_encode(['status' => true, 'message' => 'Plan actualizado. Los nuevos límites ya están activos para este cliente.']);
+    }
+    else {
+        throw new Exception("Acción no reconocida.");
+    }
+    
 } catch (Exception $e) {
     if ($conn->inTransaction()) $conn->rollBack();
-    die("Error: " . $e->getMessage());
+    echo json_encode(['status' => false, 'message' => $e->getMessage()]);
 }
-?> ```
+ ```
+
+## Archivo: ./root/css/custom.css
+ ```css
+/* ==========================================================================
+   Tema Claro estilo Facebook para AdminLTE v4
+   ========================================================================== */
+
+:root,
+[data-bs-theme="light"] {
+  /* 1. Fondo principal de la página (Gris claro característico) */
+  --bs-body-bg: #f0f2f5;
+  --bs-body-bg-rgb: 240, 242, 245;
+
+  /* 2. Textos */
+  --bs-body-color: #050505; /* Texto principal (casi negro) */
+  --bs-body-color-rgb: 5, 5, 5;
+  --bs-secondary-color: #65676b; /* Texto secundario (gris medio) */
+  --bs-secondary-color-rgb: 101, 103, 107;
+
+  /* 3. Fondos secundarios (Hover y botones inactivos) */
+  --bs-secondary-bg: #e4e6eb;
+  --bs-secondary-bg-rgb: 228, 230, 235;
+  --bs-tertiary-bg: #e4e6eb;
+
+  /* 4. Bordes y separadores */
+  --bs-border-color: #ced0d4;
+  --bs-border-color-translucent: rgba(0, 0, 0, 0.1);
+
+  /* 5. Color Primario (El azul clásico) */
+  --bs-primary: #1877f2;
+  --bs-primary-rgb: 24, 119, 242;
+  --bs-link-color: #1877f2;
+  --bs-link-hover-color: #166fe5;
+}
+
+/* --------------------------------------------------------------------------
+   Ajustes específicos para componentes de AdminLTE (Tema Claro)
+   -------------------------------------------------------------------------- */
+
+/* Tarjetas (Cards) en blanco puro para que resalten sobre el fondo gris */
+:root .card,
+[data-bs-theme="light"] .card {
+  --bs-card-bg: #ffffff;
+  border-color: transparent; /* Se quitan los bordes duros */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); /* Sombra muy suave */
+  border-radius: 8px; /* Bordes ligeramente más redondeados */
+}
+
+/* Barra superior (Header) y barra lateral (Sidebar) en blanco */
+:root .app-header,
+[data-bs-theme="light"] .app-header,
+:root .app-sidebar,
+[data-bs-theme="light"] .app-sidebar {
+  background-color: #ffffff !important;
+  border-color: #ced0d4 !important;
+}
+
+/* Comportamiento del menú lateral (Hover y activo) */
+:root .app-sidebar,
+[data-bs-theme="light"] .app-sidebar {
+  --lte-sidebar-hover-bg: #f2f2f2; /* Gris muy suave al pasar el mouse */
+  --lte-sidebar-color: #050505;
+  --lte-sidebar-hover-color: #000000;
+  --lte-sidebar-menu-active-bg: #e7f3ff; /* Fondo azul muy claro para el item activo */
+  --lte-sidebar-menu-active-color: #1877f2; /* Texto azul para el item activo */
+}
+
+/* Formularios, inputs y selects */
+:root .form-control,
+:root .form-select,
+[data-bs-theme="light"] .form-control,
+[data-bs-theme="light"] .form-select {
+  background-color: #f0f2f5; /* Fondo gris claro en reposo */
+  border-color: transparent;
+  color: #050505;
+  border-radius: 6px;
+}
+
+:root .form-control:focus,
+:root .form-select:focus,
+[data-bs-theme="light"] .form-control:focus,
+[data-bs-theme="light"] .form-select:focus {
+  background-color: #ffffff; /* Se iluminan a blanco al escribir */
+  border-color: #1877f2;
+  box-shadow: 0 0 0 0.25rem rgba(24, 119, 242, 0.25);
+}
+
+
+
+/* ==========================================================================
+   Modo Oscuro estilo Facebook para AdminLTE v4
+   ========================================================================== */
+
+[data-bs-theme="dark"] {
+  /* 1. Fondo principal de la página (Gris muy oscuro) */
+  --bs-body-bg: #18191a;
+  --bs-body-bg-rgb: 24, 25, 26;
+
+  /* 2. Textos */
+  --bs-body-color: #e4e6eb; /* Texto principal (casi blanco) */
+  --bs-body-color-rgb: 228, 230, 235;
+  --bs-secondary-color: #b0b3b8; /* Texto secundario (gris claro) */
+  --bs-secondary-color-rgb: 176, 179, 184;
+
+  /* 3. Fondos secundarios (Hover y elementos inactivos) */
+  --bs-secondary-bg: #3a3b3c;
+  --bs-secondary-bg-rgb: 23, 23, 23;
+  --bs-tertiary-bg: #3a3b3c;
+
+  /* 4. Bordes y separadores */
+  --bs-border-color: #3e4042;
+  --bs-border-color-translucent: rgba(255, 255, 255, 0.1);
+
+  /* 5. Color Primario (El azul característico adaptado para modo oscuro) */
+  --bs-primary: #2d88ff;
+  --bs-primary-rgb: 45, 136, 255;
+  --bs-link-color: #2d88ff;
+  --bs-link-hover-color: #5c9eff;
+}
+
+/* --------------------------------------------------------------------------
+   Ajustes específicos para componentes de AdminLTE
+   -------------------------------------------------------------------------- */
+
+/* Tarjetas (Cards) y paneles con el gris de superficie de FB */
+[data-bs-theme="dark"] .card {
+  --bs-card-bg: #242526;
+  border-color: #3e4042;
+}
+
+/* Barra superior (Header) y barra lateral (Sidebar) */
+[data-bs-theme="dark"] .app-header,
+[data-bs-theme="dark"] .app-sidebar {
+  background-color: #242526 !important;
+  border-color: #3e4042 !important;
+}
+
+/* Comportamiento del menú lateral (Hover y activo) */
+[data-bs-theme="dark"] .app-sidebar {
+  --lte-sidebar-hover-bg: #3a3b3c;
+  --lte-sidebar-color: #e4e6eb;
+  --lte-sidebar-hover-color: #ffffff;
+  --lte-sidebar-menu-active-bg: rgba(45, 136, 255, 0.15); /* Fondo azul sutil */
+  --lte-sidebar-menu-active-color: #2d88ff;
+}
+
+/* Formularios, inputs y selects */
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+  background-color: #3a3b3c;
+  border-color: #3e4042;
+  color: #e4e6eb;
+}
+
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+  background-color: #3a3b3c;
+  border-color: #2d88ff;
+  box-shadow: 0 0 0 0.25rem rgba(45, 136, 255, 0.25);
+}
+
+[data-bs-theme="dark"] .bg-light {
+    --bs-bg-opacity: 1;
+    background-color
+: rgb(24 25 26) !important;
+}
+[data-bs-theme="dark"] .bg-primary {
+    background-color: rgb(24 25 26) !important;
+}
+
+[data-bs-theme="dark"] .text-bg-primary {
+    color: rgb(36 37 38) !important;
+        background-color: rgb(36 37 38) !important;
+    
+}
+
+.product-item .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
+}
+.product-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Esto evita que la imagen se deforme */
+    padding: 5px;
+}
+ ```
+
+## Archivo: ./root/dashboard.php
+ ```php
+<?php
+session_start();
+require_once '../config/db.php';
+
+if (!isset($_SESSION['is_superadmin'])) { 
+    header("Location: login.php"); 
+    exit; 
+}
+
+$database = new Database();
+$conn = $database->getConnection();
+
+// --- 1. MÉTRICAS GENERALES ---
+$totalTenants = $conn->query("SELECT COUNT(*) FROM tenants")->fetchColumn();
+$activeTenants = $conn->query("SELECT COUNT(*) FROM tenants WHERE status = 'active'")->fetchColumn();
+$suspendedTenants = $conn->query("SELECT COUNT(*) FROM tenants WHERE status = 'suspended'")->fetchColumn();
+
+// --- 2. ALERTAS DE VENCIMIENTO (Próximos 15 días) ---
+$expiringQuery = $conn->query("
+    SELECT id, business_name, expiration_date, DATEDIFF(expiration_date, NOW()) as days_left 
+    FROM tenants 
+    WHERE status = 'active' AND DATEDIFF(expiration_date, NOW()) BETWEEN 0 AND 15
+    ORDER BY days_left ASC
+");
+$expiringTenants = $expiringQuery->fetchAll(PDO::FETCH_ASSOC);
+$expiringCount = count($expiringTenants);
+
+// --- 3. DATOS PARA EL GRÁFICO (Crecimiento últimos 6 meses) ---
+// Asumiendo que tu tabla tenants tiene una columna 'created_at'
+$chartQuery = $conn->query("
+    SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as total 
+    FROM tenants 
+    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+    GROUP BY month
+    ORDER BY month ASC
+");
+$chartData = $chartQuery->fetchAll(PDO::FETCH_ASSOC);
+
+// Preparamos los datos para JavaScript
+$chartLabels = json_encode(array_column($chartData, 'month'));
+$chartSeries = json_encode(array_column($chartData, 'total'));
+
+?>
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Analítico - SuperAdmin | MultiPOS</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/styles/overlayscrollbars.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/css/adminlte.min.css">
+</head>
+<body class="layout-fixed sidebar-expand-lg bg-body">
+
+<div class="app-wrapper">
+    
+    <nav class="app-header navbar navbar-expand bg-body shadow-sm">
+        <div class="container-fluid">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" data-lte-toggle="sidebar" href="#"><i class="bi bi-list"></i></a></li>
+            </ul>
+        </div>
+    </nav>
+
+<?php include 'layouts/sidebar.php'; ?>
+
+    <main class="app-main">
+        <div class="app-content-header">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-sm-6">
+                        <h3 class="mb-0 fw-bold"><i class="fas fa-chart-line text-success me-2"></i>Métricas del Negocio</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="app-content">
+            <div class="container-fluid">
+                
+                <div class="row">
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box text-bg-primary shadow-sm">
+                            <div class="inner">
+                                <h3><?= $totalTenants ?></h3>
+                                <p>Total Tiendas Históricas</p>
+                            </div>
+                            <div class="small-box-icon"><i class="fas fa-building"></i></div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box text-bg-success shadow-sm">
+                            <div class="inner">
+                                <h3><?= $activeTenants ?></h3>
+                                <p>Suscripciones Activas</p>
+                            </div>
+                            <div class="small-box-icon"><i class="fas fa-check-circle"></i></div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box text-bg-danger shadow-sm">
+                            <div class="inner">
+                                <h3><?= $suspendedTenants ?></h3>
+                                <p>Cuentas Suspendidas</p>
+                            </div>
+                            <div class="small-box-icon"><i class="fas fa-ban"></i></div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box text-bg-warning shadow-sm">
+                            <div class="inner text-dark">
+                                <h3><?= $expiringCount ?></h3>
+                                <p>Por Vencer (15 días)</p>
+                            </div>
+                            <div class="small-box-icon"><i class="fas fa-exclamation-triangle text-dark"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-lg-7">
+                        <div class="card card-outline card-success shadow-sm h-100 border-0">
+                            <div class="card-header border-0">
+                                <h3 class="card-title fw-bold">Crecimiento de Clientes (Últimos 6 meses)</h3>
+                            </div>
+                            <div class="card-body">
+                                <div id="growthChart" style="min-height: 300px;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-5">
+                        <div class="card card-outline card-warning shadow-sm h-100 border-0">
+                            <div class="card-header border-0 d-flex justify-content-between align-items-center">
+                                <h3 class="card-title fw-bold text-warning"><i class="fas fa-clock me-2"></i> Atención Requerida</h3>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive" style="max-height: 330px;">
+                                    <table class="table table-hover table-striped align-middle mb-0">
+                                        <thead class="table-dark sticky-top">
+                                            <tr>
+                                                <th class="ps-3">Cliente</th>
+                                                <th class="text-center">Vence en</th>
+                                                <th class="text-end pe-3">Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php if (empty($expiringTenants)): ?>
+                                                <tr>
+                                                    <td colspan="3" class="text-center text-muted py-4">
+                                                        <i class="fas fa-thumbs-up fa-2x mb-2 opacity-50"></i><br>
+                                                        Todo al día. No hay licencias por vencer.
+                                                    </td>
+                                                </tr>
+                                            <?php else: ?>
+                                                <?php foreach ($expiringTenants as $exp): ?>
+                                                <tr>
+                                                    <td class="ps-3 fw-bold text-primary"><?= htmlspecialchars($exp['business_name']) ?></td>
+                                                    <td class="text-center">
+                                                        <span class="badge <?= $exp['days_left'] <= 5 ? 'bg-danger' : 'bg-warning text-dark' ?>">
+                                                            <?= $exp['days_left'] ?> días
+                                                        </span>
+                                                    </td>
+                                                    <td class="text-end pe-3">
+                                                        <a href="panel.php" class="btn btn-sm btn-outline-success" title="Ir a renovar">
+                                                            <i class="fas fa-calendar-plus"></i>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/browser/overlayscrollbars.browser.es6.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/js/adminlte.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.37.1/dist/apexcharts.min.js"></script>
+
+<script>
+    window.CHART_LABELS = <?= $chartLabels ?>;
+    window.CHART_SERIES = <?= $chartSeries ?>;
+</script>
+<script src="js/dashboard.js"></script>
+
+</body>
+</html> ```
+
+## Archivo: ./root/js/dashboard.js
+ ```javascript
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. Inicializar Scrollbars de AdminLTE
+    if (typeof OverlayScrollbarsGlobal?.OverlayScrollbars !== "undefined") {
+        OverlayScrollbarsGlobal.OverlayScrollbars(document.querySelector(".sidebar-wrapper"), {
+            scrollbars: { theme: "os-theme-light", autoHide: "leave", clickScroll: true }
+        });
+    }
+
+    // 2. Configurar y renderizar el gráfico de ApexCharts
+    const chartLabels = window.CHART_LABELS || [];
+    const chartSeries = window.CHART_SERIES || [];
+
+    // Formatear las etiquetas de mes (Ej: "2026-04" -> "Abril 2026")
+    const formattedLabels = chartLabels.map(label => {
+        const [year, month] = label.split('-');
+        const date = new Date(year, month - 1);
+        return date.toLocaleString('es-ES', { month: 'short', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
+    });
+
+    const options = {
+        series: [{
+            name: 'Nuevas Tiendas',
+            data: chartSeries
+        }],
+        chart: {
+            height: 320,
+            type: 'area',
+            toolbar: { show: false },
+            fontFamily: 'inherit',
+            background: 'transparent'
+        },
+        colors: ['#198754'], // Verde Success
+        dataLabels: {
+            enabled: true,
+            style: { colors: ['#fff'] },
+            background: { enabled: true, foreColor: '#198754', borderRadius: 4 }
+        },
+        stroke: {
+            curve: 'smooth',
+            width: 3
+        },
+        fill: {
+            type: 'gradient',
+            gradient: {
+                shadeIntensity: 1,
+                opacityFrom: 0.4,
+                opacityTo: 0.05,
+                stops: [0, 90, 100]
+            }
+        },
+        xaxis: {
+            categories: formattedLabels,
+            labels: { style: { colors: '#adb5bd' } },
+            axisBorder: { show: false },
+            axisTicks: { show: false }
+        },
+        yaxis: {
+            labels: { style: { colors: '#adb5bd' } },
+            min: 0,
+            forceNiceScale: true
+        },
+        grid: {
+            borderColor: 'rgba(255, 255, 255, 0.05)',
+            strokeDashArray: 4,
+        },
+        theme: { mode: 'dark' },
+        tooltip: {
+            theme: 'dark',
+            y: { formatter: function (val) { return val + " Tiendas" } }
+        }
+    };
+
+    const chart = new ApexCharts(document.querySelector("#growthChart"), options);
+    chart.render();
+}); ```
+
+## Archivo: ./root/js/panel.js
+ ```javascript
+document.addEventListener("DOMContentLoaded", function () {
+  // Declarar las instancias de los nuevos modales
+  const modalViewTenant = new bootstrap.Modal(
+    document.getElementById("modalViewTenant"),
+  );
+  const modalEditTenant = new bootstrap.Modal(
+    document.getElementById("modalEditTenant"),
+  );
+
+  // Habilitar el envío del formulario de edición
+  handleFormSubmit("formEditTenant", modalEditTenant);
+
+  // --- FUNCION: VER DETALLES ---
+  window.viewTenant = function (id) {
+    const formData = new FormData();
+    formData.append("action", "get_tenant");
+    formData.append("id", id);
+
+    fetch("actions.php", { method: "POST", body: formData })
+      .then((response) => response.json())
+      .then((res) => {
+        if (res.status) {
+          document.getElementById("view_id").innerText = res.data.id;
+          document.getElementById("view_name").innerText =
+            res.data.business_name;
+          document.getElementById("view_rif").innerText = res.data.rif || "N/A";
+          document.getElementById("view_admin").innerText =
+            res.data.admin_user || "Sin asignar";
+          document.getElementById("view_license").innerText =
+            res.data.license_key;
+          document.getElementById("view_created").innerText =
+            res.data.created_at || "N/A";
+          modalViewTenant.show();
+        } else {
+          Swal.fire("Error", res.message, "error");
+        }
+      })
+      .catch((err) => console.error(err));
+  };
+
+  // --- FUNCION: PREPARAR EDICIÓN ---
+  window.editTenant = function (id) {
+    const formData = new FormData();
+    formData.append("action", "get_tenant");
+    formData.append("id", id);
+
+    fetch("actions.php", { method: "POST", body: formData })
+      .then((response) => response.json())
+      .then((res) => {
+        if (res.status) {
+          document.getElementById("edit_id").value = res.data.id;
+          document.getElementById("edit_name").value = res.data.business_name;
+          document.getElementById("edit_rif").value = res.data.rif;
+          document.querySelector('input[name="new_password"]').value = ""; // Limpiar campo contraseña
+          modalEditTenant.show();
+        } else {
+          Swal.fire("Error", res.message, "error");
+        }
+      })
+      .catch((err) => console.error(err));
+  };
+
+  // --- FUNCION: ELIMINAR DEFINITIVAMENTE ---
+  window.deleteTenant = function (id, name) {
+    Swal.fire({
+      title: "¿Estás completamente seguro?",
+      html: `Estás a punto de eliminar <strong>${name}</strong> de forma permanente.<br><br><span class="text-danger">¡Esta acción borrará usuarios, productos y ventas de esta tienda y NO se puede deshacer!</span>`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc3545",
+      cancelButtonColor: "#6c757d",
+      confirmButtonText:
+        '<i class="fas fa-trash-alt"></i> Sí, eliminar definitivamente',
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Doble confirmación de seguridad
+        Swal.fire({
+          title: "Última advertencia",
+          text: 'Escribe la palabra "ELIMINAR" para confirmar:',
+          input: "text",
+          icon: "error",
+          showCancelButton: true,
+          confirmButtonText: "Borrar",
+          cancelButtonText: "Cancelar",
+          preConfirm: (text) => {
+            if (text !== "ELIMINAR") {
+              Swal.showValidationMessage(
+                'Debes escribir "ELIMINAR" (en mayúsculas) para confirmar',
+              );
+            }
+          },
+        }).then((secondResult) => {
+          if (secondResult.isConfirmed) {
+            const formData = new FormData();
+            formData.append("action", "delete_tenant");
+            formData.append("id", id);
+
+            fetch("actions.php", {
+              method: "POST",
+              body: formData,
+            })
+              .then((response) => response.json())
+              .then((res) => {
+                if (res.status) {
+                  Swal.fire({
+                    title: "¡Eliminado!",
+                    text: res.message,
+                    icon: "success",
+                    timer: 2000,
+                    showConfirmButton: false,
+                  }).then(() => location.reload());
+                } else {
+                  Swal.fire("Error", res.message, "error");
+                }
+              })
+              .catch((err) => console.error(err));
+          }
+        });
+      }
+    });
+  };
+
+  // Inicializar Scrollbars de AdminLTE
+  if (typeof OverlayScrollbarsGlobal?.OverlayScrollbars !== "undefined") {
+    OverlayScrollbarsGlobal.OverlayScrollbars(
+      document.querySelector(".sidebar-wrapper"),
+      {
+        scrollbars: {
+          theme: "os-theme-light",
+          autoHide: "leave",
+          clickScroll: true,
+        },
+      },
+    );
+  }
+
+  // Instancias de modales de Bootstrap
+  const modalNewTenant = new bootstrap.Modal(
+    document.getElementById("modalNewTenant"),
+  );
+  const modalBCV = new bootstrap.Modal(document.getElementById("modalBCV"));
+  const modalRenew = new bootstrap.Modal(document.getElementById("modalRenew"));
+
+  // --- Función genérica para enviar formularios vía AJAX ---
+  function handleFormSubmit(formId, modalInstance) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const btnSubmit = this.querySelector('button[type="submit"]');
+      const originalText = btnSubmit.innerHTML;
+
+      // Estado Loading
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+
+      fetch("actions.php", {
+        method: "POST",
+        body: formData,
+      })
+        .then((response) => response.json())
+.then(res => {
+                if (res.status) {
+                    modalInstance.hide();
+                    Swal.fire({
+                        title: '¡Éxito!',
+                        text: res.message,
+                        icon: 'success',
+                        confirmButtonColor: '#198754',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        // NUEVO: Si la respuesta trae un ID de pago, abrimos el recibo
+                        if (res.payment_id) {
+                            window.open(`receipt.php?id=${res.payment_id}`, '_blank');
+                        }
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = originalText;
+                }
+            })
+        .catch((error) => {
+          console.error("Error:", error);
+          Swal.fire(
+            "Error de conexión",
+            "No se pudo comunicar con el servidor.",
+            "error",
+          );
+          btnSubmit.disabled = false;
+          btnSubmit.innerHTML = originalText;
+        });
+    });
+  }
+
+  // Aplicar lógica a los formularios
+  handleFormSubmit("formNewTenant", modalNewTenant);
+  handleFormSubmit("formBCV", modalBCV);
+  handleFormSubmit("formRenew", modalRenew);
+
+  // --- Funciones Globales para botones de la tabla ---
+
+  // Abrir Modal de Renovación
+  window.openRenewModal = function (id, name) {
+    document.getElementById("renew_id").value = id;
+    document.getElementById("renew_name").innerText = name;
+    modalRenew.show();
+  };
+
+  // Cambiar estado (Activar / Suspender) con Confirmación
+  window.toggleStatus = function (id, newStatus, name) {
+    const isSuspending = newStatus === "suspended";
+    const actionText = isSuspending ? "suspender" : "reactivar";
+    const confirmColor = isSuspending ? "#dc3545" : "#198754";
+    const iconType = isSuspending ? "warning" : "question";
+
+    Swal.fire({
+      title: `¿${actionText.charAt(0).toUpperCase() + actionText.slice(1)} tienda?`,
+      html: `Estás a punto de <strong>${actionText}</strong> el acceso a <strong>${name}</strong>.`,
+      icon: iconType,
+      showCancelButton: true,
+      confirmButtonColor: confirmColor,
+      cancelButtonColor: "#6c757d",
+      confirmButtonText: `Sí, ${actionText}`,
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const formData = new FormData();
+        formData.append("action", "toggle_status");
+        formData.append("id", id);
+        formData.append("status", newStatus);
+
+        fetch("actions.php", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((res) => {
+            if (res.status) {
+              Swal.fire({
+                title: "¡Hecho!",
+                text: res.message,
+                icon: "success",
+                timer: 1500,
+                showConfirmButton: false,
+              }).then(() => location.reload());
+            } else {
+              Swal.fire("Error", res.message, "error");
+            }
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            Swal.fire(
+              "Error",
+              "Problema al comunicarse con el servidor.",
+              "error",
+            );
+          });
+      }
+    });
+  };
+});
+ ```
+
+## Archivo: ./root/js/payments.js
+ ```javascript
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. Inicializar Scrollbars de AdminLTE
+    if (typeof OverlayScrollbarsGlobal?.OverlayScrollbars !== "undefined") {
+        OverlayScrollbarsGlobal.OverlayScrollbars(document.querySelector(".sidebar-wrapper"), {
+            scrollbars: { theme: "os-theme-light", autoHide: "leave", clickScroll: true }
+        });
+    }
+
+    // 2. Buscador en tiempo real
+    const searchInput = document.getElementById('searchPayment');
+    if (searchInput) {
+        searchInput.addEventListener('keyup', function() {
+            const filter = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#paymentsTable tbody tr');
+            
+            rows.forEach(row => {
+                // Ignorar la fila de "Aún no hay pagos" si existe
+                if (row.cells.length > 1) {
+                    const text = row.innerText.toLowerCase();
+                    row.style.display = text.includes(filter) ? '' : 'none';
+                }
+            });
+        });
+    }
+
+    // 3. Exportar a CSV (Excel)
+    const btnExport = document.getElementById('btnExportCSV');
+    if (btnExport) {
+        btnExport.addEventListener('click', function() {
+            let csv = [];
+            const rows = document.querySelectorAll("#paymentsTable tr");
+            
+            for (let i = 0; i < rows.length; i++) {
+                let row = [], cols = rows[i].querySelectorAll("td, th");
+                
+                // Ignoramos la última columna (Acción/Botón de imprimir)
+                let colsLength = cols.length - 1; 
+                
+                // Si es la fila de "No hay pagos", la saltamos
+                if (cols.length === 1) continue;
+
+                for (let j = 0; j < colsLength; j++) {
+                    // Limpiar saltos de línea para que Excel lo lea bien
+                    let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " ").trim();
+                    // Escapar comillas dobles
+                    data = data.replace(/"/g, '""');
+                    row.push(`"${data}"`);
+                }
+                csv.push(row.join(","));
+            }
+
+            // Descargar el archivo
+            const csvFile = new Blob(["\uFEFF" + csv.join("\n")], {type: "text/csv;charset=utf-8;"});
+            const downloadLink = document.createElement("a");
+            downloadLink.download = `historial_pagos_multipos_${new Date().toISOString().split('T')[0]}.csv`;
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        });
+    }
+}); ```
+
+## Archivo: ./root/js/plans.js
+ ```javascript
+document.addEventListener("DOMContentLoaded", function() {
+    const modalPlan = new bootstrap.Modal(document.getElementById('modalPlan'));
+
+    // 1. Abrir Modal para Crear
+    window.openPlanModal = function() {
+        document.getElementById('formPlan').reset();
+        document.getElementById('plan_id').value = '';
+        document.getElementById('modalPlanTitle').innerHTML = '<i class="fas fa-plus-circle me-2"></i> Crear Nuevo Plan';
+        modalPlan.show();
+    };
+
+    // 2. Abrir Modal para Editar
+    window.editPlan = function(id) {
+        const formData = new FormData();
+        formData.append('action', 'get_plan');
+        formData.append('id', id);
+
+        fetch('actions.php', { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(res => {
+            if (res.status) {
+                document.getElementById('plan_id').value = res.data.id;
+                document.getElementById('plan_name').value = res.data.name;
+                document.getElementById('plan_price').value = res.data.price_usd;
+                document.getElementById('plan_users').value = res.data.max_users;
+                document.getElementById('plan_products').value = res.data.max_products;
+                document.getElementById('plan_desc').value = res.data.description;
+                
+                document.getElementById('modalPlanTitle').innerHTML = '<i class="fas fa-edit me-2"></i> Editar Plan';
+                modalPlan.show();
+            } else {
+                Swal.fire('Error', res.message, 'error');
+            }
+        });
+    };
+
+    // 3. Guardar Formulario
+    document.getElementById('formPlan').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btnSubmit = this.querySelector('button[type="submit"]');
+        const originalText = btnSubmit.innerHTML;
+
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+
+        fetch('actions.php', {
+            method: 'POST',
+            body: new FormData(this)
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.status) {
+                modalPlan.hide();
+                Swal.fire({ title: '¡Éxito!', text: res.message, icon: 'success', timer: 1500, showConfirmButton: false })
+                .then(() => location.reload());
+            } else {
+                Swal.fire('Error', res.message, 'error');
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = originalText;
+            }
+        });
+    });
+
+    // 4. Eliminar Plan
+    window.deletePlan = function(id, name) {
+        Swal.fire({
+            title: `¿Eliminar el plan ${name}?`,
+            text: "No podrás eliminarlo si hay tiendas actualmente usando este plan.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const fd = new FormData();
+                fd.append('action', 'delete_plan');
+                fd.append('id', id);
+
+                fetch('actions.php', { method: 'POST', body: fd })
+                .then(response => response.json())
+                .then(res => {
+                    if (res.status) {
+                        Swal.fire('¡Eliminado!', res.message, 'success').then(() => location.reload());
+                    } else {
+                        Swal.fire('No se pudo eliminar', res.message, 'error');
+                    }
+                });
+            }
+        });
+    };
+}); ```
+
+## Archivo: ./root/layouts/footer.php
+ ```php
+
+    <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/browser/overlayscrollbars.browser.es6.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/js/adminlte.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="js/panel.js"></script> ```
+
+## Archivo: ./root/layouts/modals/modals_panel.php
+ ```php
+    <div class="modal fade" id="modalNewTenant" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <form id="formNewTenant" class="modal-content shadow border-0">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-store me-2"></i> Registrar Nueva Tienda</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="hidden" name="action" value="create_tenant">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Nombre del Negocio</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-building"></i></span>
+                                <input type="text" name="name" class="form-control" placeholder="Ej: Supermercado XYZ" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted text-uppercase">RIF / Identificación</label>
+                            <input type="text" name="rif" class="form-control" placeholder="Ej: J-12345678-9" required>
+                        </div>
+
+                        <div class="col-12">
+                            <hr class="opacity-25 my-2">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Usuario Administrador</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-user-shield"></i></span>
+                                <input type="text" name="admin_user" class="form-control" placeholder="Ej: admin_xyz" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Contraseña</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                <input type="password" name="admin_pass" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-12 mt-4">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Duración de Licencia Inicial</label>
+                            <select name="months" class="form-select form-select-lg border-success">
+                                <option value="1">1 Mes (Prueba)</option>
+                                <option value="6">6 Meses</option>
+                                <option value="12">1 Año</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success fw-bold px-4"><i class="fas fa-save me-1"></i> Crear y Activar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalBCV" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <form id="formBCV" class="modal-content shadow border-0">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-sync-alt me-2"></i> Tasa Global</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <input type="hidden" name="action" value="update_bcv">
+                    <label class="form-label fw-bold text-muted small text-uppercase">Tasa de Cambio (Bs/USD)</label>
+                    <div class="input-group input-group-lg mb-3">
+                        <span class="input-group-text bg-light fw-bold">Bs.</span>
+                        <input type="number" step="0.01" name="rate" class="form-control text-center fw-bold text-primary" value="<?= $bcv['bcv_rate'] ?>" required>
+                    </div>
+                    <div class="alert alert-warning py-2 mb-0 small text-start">
+                        <i class="fas fa-info-circle me-1"></i> Actualizará los precios de TODAS las tiendas.
+                    </div>
+                </div>
+                <div class="modal-footer bg-light p-2 justify-content-center">
+                    <button type="submit" class="btn btn-warning w-100 fw-bold shadow-sm">Guardar Tasa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<div class="modal fade" id="modalRenew" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="formRenew" class="modal-content shadow border-0">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="fas fa-file-invoice-dollar me-2"></i> Renovar Suscripción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" name="action" value="renew">
+                <input type="hidden" name="id" id="renew_id">
+                
+                <div class="alert alert-primary bg-primary-subtle text-primary border-0 mb-4">
+                    Renovando tienda: <strong id="renew_name" class="fs-5 d-block">Nombre Tienda</strong>
+                </div>
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small fw-bold text-uppercase">Extender por</label>
+                        <select name="months" class="form-select border-primary">
+                            <option value="1">1 Mes</option>
+                            <option value="3">3 Meses</option>
+                            <option value="6">6 Meses</option>
+                            <option value="12">1 Año</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small fw-bold text-uppercase">Monto Cobrado (USD)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light">$</span>
+                            <input type="number" step="0.01" name="amount" class="form-control" placeholder="Ej: 29.99" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small fw-bold text-uppercase">Método de Pago</label>
+                        <select name="payment_method" class="form-select" required>
+                            <option value="" disabled selected>Seleccionar...</option>
+                            <option value="Binance Pay">Binance Pay (USDT)</option>
+                            <option value="Zelle">Zelle</option>
+                            <option value="Pago Movil">Pago Móvil (Bs)</option>
+                            <option value="Efectivo USD">Efectivo (Divisa)</option>
+                            <option value="Transferencia">Transferencia Bancaria</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small fw-bold text-uppercase">N° Referencia</label>
+                        <input type="text" name="reference" class="form-control" placeholder="Opcional">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light p-3">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary fw-bold px-4"><i class="fas fa-check-circle me-1"></i> Procesar Pago</button>
+            </div>
+        </form>
+    </div>
+</div>
+    <div class="modal fade" id="modalViewTenant" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow border-0">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-eye me-2"></i> Detalles de la Tienda</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="text-muted fw-bold">ID:</span>
+                            <span id="view_id" class="fw-bold"></span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="text-muted fw-bold">Negocio:</span>
+                            <span id="view_name" class="text-primary fw-bold"></span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="text-muted fw-bold">RIF:</span>
+                            <span id="view_rif"></span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="text-muted fw-bold">Usuario Admin:</span>
+                            <span id="view_admin" class="font-monospace bg-light px-2 rounded"></span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="text-muted fw-bold">Licencia:</span>
+                            <span id="view_license" class="badge text-bg-dark font-monospace"></span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="text-muted fw-bold">Fecha Creada:</span>
+                            <span id="view_created"></span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<div class="modal fade" id="modalEditTenant" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <form id="formEditTenant" class="modal-content shadow border-0">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-edit me-2"></i> Editar Tienda</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="hidden" name="action" value="edit_tenant">
+                    <input type="hidden" name="id" id="edit_id">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Nombre del Negocio</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-building"></i></span>
+                                <input type="text" name="name" id="edit_name" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted text-uppercase">RIF / Identificación</label>
+                            <input type="text" name="rif" id="edit_rif" class="form-control" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <hr class="opacity-25 my-2">
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Nueva Contraseña de Admin</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                <input type="password" name="new_password" class="form-control" placeholder="Dejar en blanco para no cambiar">
+                            </div>
+                            <small class="text-muted d-block mt-1">Si el cliente olvidó su clave, puedes generar una nueva aquí.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light p-3">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning fw-bold text-dark"><i class="fas fa-save me-1"></i> Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div> ```
+
+## Archivo: ./root/layouts/sidebar.php
+ ```php
+<?php
+// Obtener el nombre del archivo actual para marcar la pestaña activa
+$currentPage = basename($_SERVER['PHP_SELF']);
+?>
+<aside class="app-sidebar bg-body-tertiary shadow" data-bs-theme="dark">
+    <div class="sidebar-brand border-bottom border-secondary">
+        <a href="dashboard.php" class="brand-link text-decoration-none">
+            <i class="fas fa-crown text-warning mx-2"></i>
+            <span class="brand-text fw-bold">SuperAdmin</span>
+        </a>
+    </div>
+    <div class="sidebar-wrapper">
+        <nav class="mt-2">
+            <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="menu" data-accordion="false">
+                
+                <li class="nav-header text-uppercase opacity-75 small fw-bold mt-2">Analíticas</li>
+                <li class="nav-item">
+                    <a href="dashboard.php" class="nav-link <?= $currentPage == 'dashboard.php' ? 'active' : '' ?>">
+                        <i class="nav-icon fas fa-chart-pie text-success"></i>
+                        <p>Dashboard</p>
+                    </a>
+                </li>
+                
+                <li class="nav-header text-uppercase opacity-75 small fw-bold mt-3">Gestión</li>
+                <li class="nav-item">
+                    <a href="panel.php" class="nav-link <?= $currentPage == 'panel.php' ? 'active' : '' ?>">
+                        <i class="nav-icon fas fa-store text-info"></i>
+                        <p>Tiendas (Tenants)</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="payments.php" class="nav-link <?= $currentPage == 'payments.php' ? 'active' : '' ?>">
+                        <i class="nav-icon fas fa-file-invoice-dollar text-warning"></i>
+                        <p>Historial de Pagos</p>
+                    </a>
+                </li>
+
+                <li class="nav-header text-uppercase opacity-75 small fw-bold mt-3">Sistema</li>
+                <li class="nav-item">
+                    <a href="logout.php" class="nav-link">
+                        <i class="nav-icon fas fa-sign-out-alt text-danger"></i>
+                        <p class="text-danger">Cerrar Sesión</p>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</aside> ```
 
 ## Archivo: ./root/login.php
  ```php
@@ -24762,93 +26310,406 @@ header("Location: login.php");
 session_start();
 require_once '../config/db.php';
 
-// Seguridad: Solo el dueño puede entrar
-if (!isset($_SESSION['is_superadmin'])) { header("Location: login.php"); exit; }
+if (!isset($_SESSION['is_superadmin'])) {
+    header("Location: login.php");
+    exit;
+}
 
 $database = new Database();
 $conn = $database->getConnection();
 
-// Obtener Tasa BCV Actual
 $bcvQuery = $conn->query("SELECT bcv_rate FROM system_settings WHERE id=1");
 $bcv = $bcvQuery->fetch(PDO::FETCH_ASSOC);
 
-// Obtener Listado de Tiendas (Tenants)
-$tenants = $conn->query("SELECT *, DATEDIFF(expiration_date, NOW()) as days_left FROM tenants ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$tenants = $conn->query("
+    SELECT t.*, p.name as plan_name, DATEDIFF(t.expiration_date, NOW()) as days_left 
+    FROM tenants t 
+    LEFT JOIN plans p ON t.plan_id = p.id 
+    ORDER BY t.id DESC
+")->fetchAll(PDO::FETCH_ASSOC);
+
+// Obtener los planes para llenar el select del modal
+$allPlans = $conn->query("SELECT id, name FROM plans ORDER BY price_usd ASC")->fetchAll(PDO::FETCH_ASSOC);
+?>
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control - SuperAdmin | MultiPOS</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/styles/overlayscrollbars.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="./css/custom.css" />
+</head>
+
+<body class="layout-fixed sidebar-expand-lg bg-body">
+
+    <div class="app-wrapper">
+
+        <nav class="app-header navbar navbar-expand bg-body shadow-sm">
+            <div class="container-fluid">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button"><i class="bi bi-list"></i></a>
+                    </li>
+                </ul>
+
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item me-3">
+                        <span class="badge border border-warning text-warning px-3 py-2 fs-6">
+                            <i class="fas fa-coins me-1"></i> BCV: <strong><?= number_format($bcv['bcv_rate'], 2) ?> Bs</strong>
+                        </span>
+                    </li>
+                    <li class="nav-item me-3">
+                        <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalBCV">
+                            <i class="fas fa-sync-alt me-1"></i> Actualizar Tasa
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <?php include 'layouts/sidebar.php'; ?>
+
+        <main class="app-main">
+            <div class="app-content-header">
+                <div class="container-fluid">
+                    <div class="row align-items-center">
+                        <div class="col-sm-6">
+                            <h3 class="mb-0 fw-bold"><i class="fas fa-server text-primary me-2"></i>Gestión de Clientes (SaaS)</h3>
+                        </div>
+                        <div class="col-sm-6 text-end">
+                            <button class="btn btn-success shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalNewTenant">
+                                <i class="fas fa-plus-circle me-1"></i> Nueva Tienda
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="app-content">
+                <div class="container-fluid">
+                    <div class="card card-outline card-primary shadow-sm border-0">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover table-striped mb-0 align-middle">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th class="text-center" width="5%">ID</th>
+                                            <th>Negocio</th>
+                                            <th>Licencia</th>
+                                            <th>Estado</th>
+                                            <th>Vencimiento</th>
+                                            <th class="text-end pe-4">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($tenants as $t): ?>
+                                            <tr>
+                                                <td class="text-center fw-bold"><?= $t['id'] ?></td>
+                                                <td>
+                                                    <strong class="text-primary"><?= htmlspecialchars($t['business_name']) ?></strong><br>
+                                                    <small class="text-muted"><i class="fas fa-id-card me-1"></i> <?= htmlspecialchars($t['rif']) ?></small>
+                                                </td>
+                                                <<td>
+                                                    <span class="badge text-bg-dark border font-monospace"><?= $t['license_key'] ?></span><br>
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary mt-1">Plan: <?= htmlspecialchars($t['plan_name'] ?? 'Básico') ?></span>
+                                                    </td>
+                                                    <td>
+                                                        <?php if ($t['status'] == 'active'): ?>
+                                                            <span class="badge bg-success-subtle text-success border border-success"><i class="fas fa-check-circle me-1"></i> Activo</span>
+                                                        <?php else: ?>
+                                                            <span class="badge bg-danger-subtle text-danger border border-danger"><i class="fas fa-ban me-1"></i> Suspendido</span>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td>
+                                                        <div class="fw-medium"><?= date('d/m/Y', strtotime($t['expiration_date'])) ?></div>
+                                                        <?php if ($t['days_left'] < 0): ?>
+                                                            <span class="badge bg-danger mt-1"><i class="fas fa-exclamation-triangle"></i> Vencido (<?= abs($t['days_left']) ?> días)</span>
+                                                        <?php elseif ($t['days_left'] <= 7): ?>
+                                                            <span class="badge bg-warning text-dark mt-1"><i class="fas fa-clock"></i> Quedan <?= $t['days_left'] ?> días</span>
+                                                        <?php else: ?>
+                                                            <span class="text-info small"><i class="fas fa-calendar-check me-1"></i> <?= $t['days_left'] ?> días rest.</span>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td class="text-end pe-3">
+                                                        <div class="btn-group shadow-sm">
+                                                            <button class="btn btn-sm btn-outline-info" onclick="viewTenant(<?= $t['id'] ?>)" title="Ver Detalles">
+                                                                <i class="fas fa-eye"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-secondary" onclick="openChangePlanModal(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['business_name'])) ?>', <?= $t['plan_id'] ?? 1 ?>)" title="Cambiar Plan (Upsell)">
+                                                                <i class="fas fa-level-up-alt"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-warning" onclick="editTenant(<?= $t['id'] ?>)" title="Editar Tienda">
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-primary" onclick="openRenewModal(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['business_name'])) ?>')" title="Renovar Licencia">
+                                                                <i class="fas fa-calendar-plus"></i>
+                                                            </button>
+                                                            <?php if ($t['status'] == 'active'): ?>
+                                                                <button class="btn btn-sm btn-outline-secondary" onclick="toggleStatus(<?= $t['id'] ?>, 'suspended', '<?= htmlspecialchars(addslashes($t['business_name'])) ?>')" title="Suspender Tienda">
+                                                                    <i class="fas fa-ban"></i>
+                                                                </button>
+                                                            <?php else: ?>
+                                                                <button class="btn btn-sm btn-outline-success" onclick="toggleStatus(<?= $t['id'] ?>, 'active', '<?= htmlspecialchars(addslashes($t['business_name'])) ?>')" title="Reactivar Tienda">
+                                                                    <i class="fas fa-check-circle"></i>
+                                                                </button>
+                                                            <?php endif; ?>
+                                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteTenant(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['business_name'])) ?>')" title="Eliminar Definitivamente">
+                                                                <i class="fas fa-trash-alt"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <?php
+    include 'layouts/footer.php';
+    include 'layouts/modals/modals_panel.php';
+    ?>
+</body>
+
+</html> ```
+
+## Archivo: ./root/payments.php
+ ```php
+<?php
+session_start();
+require_once '../config/db.php';
+
+if (!isset($_SESSION['is_superadmin'])) { 
+    header("Location: login.php"); 
+    exit; 
+}
+
+$database = new Database();
+$conn = $database->getConnection();
+
+// --- 1. MÉTRICAS FINANCIERAS ---
+// Ingresos Totales Históricos
+$totalRevenue = $conn->query("SELECT COALESCE(SUM(amount_usd), 0) FROM tenant_payments")->fetchColumn();
+
+// Ingresos del Mes Actual
+$currentMonthRevenue = $conn->query("
+    SELECT COALESCE(SUM(amount_usd), 0) 
+    FROM tenant_payments 
+    WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())
+")->fetchColumn();
+
+// --- 2. OBTENER HISTORIAL DE PAGOS ---
+$sql = "SELECT p.*, t.business_name, t.rif 
+        FROM tenant_payments p 
+        JOIN tenants t ON p.tenant_id = t.id 
+        ORDER BY p.created_at DESC";
+$payments = $conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 <!DOCTYPE html>
 <html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Dueño | AdminLTE 4</title>
+    <title>Historial de Pagos - SuperAdmin | MultiPOS</title>
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/styles/overlayscrollbars.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/css/adminlte.min.css">
 </head>
 <body class="layout-fixed sidebar-expand-lg bg-body">
 
 <div class="app-wrapper">
     
-    <nav class="app-header navbar navbar-expand bg-body">
+    <nav class="app-header navbar navbar-expand bg-body shadow-sm">
         <div class="container-fluid">
             <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button"><i class="bi bi-list"></i></a>
-                </li>
+                <li class="nav-item"><a class="nav-link" data-lte-toggle="sidebar" href="#"><i class="bi bi-list"></i></a></li>
             </ul>
-            
-            <ul class="navbar-nav ms-auto align-items-center">
-                <li class="nav-item me-3">
-                    <span class="text-warning">BCV: <strong><?= number_format($bcv['bcv_rate'], 2) ?> Bs</strong></span>
-                </li>
-                <li class="nav-item me-3">
-                    <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalBCV">
-                        <i class="bi bi-currency-exchange"></i> Cambiar Tasa
-                    </button>
-                </li>
+        </div>
+    </nav>
+    <?php include 'layouts/sidebar.php'; ?>
+    <main class="app-main">
+        <div class="app-content-header">
+            <div class="container-fluid">
+                <div class="row align-items-center">
+                    <div class="col-sm-6">
+                        <h3 class="mb-0 fw-bold"><i class="fas fa-file-invoice-dollar text-success me-2"></i>Historial de Pagos</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="app-content">
+            <div class="container-fluid">
+                
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <div class="card shadow-sm h-100 border-0 border-start border-4 border-success">
+                            <div class="card-body">
+                                <p class="mb-1 text-muted fw-bold small text-uppercase"><i class="fas fa-calendar-day me-1"></i> Ingresos de este mes</p>
+                                <h2 class="mb-0 text-success fw-bold">$ <?= number_format($currentMonthRevenue, 2) ?></h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm h-100 border-0 border-start border-4 border-primary">
+                            <div class="card-body">
+                                <p class="mb-1 text-muted fw-bold small text-uppercase"><i class="fas fa-chart-line me-1"></i> Total Histórico Recaudado</p>
+                                <h2 class="mb-0 text-primary fw-bold">$ <?= number_format($totalRevenue, 2) ?></h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card card-outline card-success shadow-sm border-0">
+                    <div class="card-header border-0 pb-0 pt-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <h5 class="card-title fw-bold m-0">Registro de Transacciones</h5>
+                            </div>
+                            <div class="col-md-6 d-flex justify-content-md-end gap-2">
+                                <div class="input-group input-group-sm" style="max-width: 250px;">
+                                    <span class="input-group-text bg-transparent text-muted"><i class="fas fa-search"></i></span>
+                                    <input type="text" id="searchPayment" class="form-control" placeholder="Buscar cliente o ref...">
+                                </div>
+                                <button class="btn btn-sm btn-outline-success shadow-sm fw-bold" id="btnExportCSV">
+                                    <i class="fas fa-file-excel me-1"></i> Exportar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <hr class="opacity-25 mx-3 mt-3 mb-0">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped align-middle mb-0" id="paymentsTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th class="text-center ps-3">Recibo</th>
+                                        <th>Fecha</th>
+                                        <th>Cliente</th>
+                                        <th>Método</th>
+                                        <th>Referencia</th>
+                                        <th>Meses</th>
+                                        <th class="text-end">Monto (USD)</th>
+                                        <th class="text-center pe-3">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if(empty($payments)): ?>
+                                        <tr>
+                                            <td colspan="8" class="text-center py-5 text-muted">
+                                                <i class="fas fa-box-open fa-3x mb-3 opacity-25"></i>
+                                                <p class="mb-0">Aún no hay pagos registrados.</p>
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach($payments as $p): ?>
+                                        <tr>
+                                            <td class="text-center ps-3 fw-bold text-primary">#<?= str_pad($p['id'], 5, '0', STR_PAD_LEFT) ?></td>
+                                            <td>
+                                                <?= date('d/m/Y', strtotime($p['created_at'])) ?><br>
+                                                <small class="text-muted"><?= date('h:i A', strtotime($p['created_at'])) ?></small>
+                                            </td>
+                                            <td>
+                                                <strong class="text-light"><?= htmlspecialchars($p['business_name']) ?></strong><br>
+                                                <small class="text-muted"><?= htmlspecialchars($p['rif']) ?></small>
+                                            </td>
+                                            <td><span class="badge bg-secondary-subtle text-secondary border border-secondary"><?= htmlspecialchars($p['payment_method']) ?></span></td>
+                                            <td class="font-monospace text-muted"><?= !empty($p['reference']) ? htmlspecialchars($p['reference']) : 'N/A' ?></td>
+                                            <td>+<?= $p['months_added'] ?></td>
+                                            <td class="text-end fw-bold text-success">$<?= number_format($p['amount_usd'], 2) ?></td>
+                                            <td class="text-center pe-3">
+                                                <button class="btn btn-sm btn-outline-info" onclick="window.open('receipt.php?id=<?= $p['id'] ?>', '_blank')" title="Ver/Imprimir Recibo">
+                                                    <i class="fas fa-print"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/browser/overlayscrollbars.browser.es6.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/js/adminlte.min.js"></script>
+<script src="js/payments.js"></script>
+
+</body>
+</html> ```
+
+## Archivo: ./root/plans.php
+ ```php
+<?php
+session_start();
+require_once '../config/db.php';
+
+if (!isset($_SESSION['is_superadmin'])) { header("Location: login.php"); exit; }
+
+$database = new Database();
+$conn = $database->getConnection();
+
+$plans = $conn->query("SELECT * FROM plans ORDER BY price_usd ASC")->fetchAll(PDO::FETCH_ASSOC);
+?>
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planes de Suscripción - SuperAdmin | MultiPOS</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/styles/overlayscrollbars.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/css/adminlte.min.css">
+</head>
+<body class="layout-fixed sidebar-expand-lg bg-body">
+
+<div class="app-wrapper">
+    
+    <nav class="app-header navbar navbar-expand bg-body shadow-sm">
+        <div class="container-fluid">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" data-lte-toggle="sidebar" href="#"><i class="bi bi-list"></i></a></li>
             </ul>
         </div>
     </nav>
 
-    <aside class="app-sidebar bg-body-tertiary shadow">
-        <div class="sidebar-brand">
-            <a href="#" class="brand-link">
-                <span class="brand-text fw-light">🛠️ Gestión SaaS</span>
-            </a>
-        </div>
-        <div class="sidebar-wrapper">
-            <nav class="mt-2">
-                <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="menu" data-accordion="false">
-                    <li class="nav-item">
-                        <a href="#" class="nav-link active">
-                            <i class="nav-icon bi bi-shop"></i>
-                            <p>Tiendas Registradas</p>
-                        </a>
-                    </li>
-                    <li class="nav-header">SESIÓN</li>
-                    <li class="nav-item">
-                        <a href="logout.php" class="nav-link text-danger">
-                            <i class="nav-icon bi bi-box-arrow-right"></i>
-                            <p>Salir del Panel</p>
-                        </a>
-                    </li>
-                </ul>
-            </nav>
-        </div>
-    </aside>
+    <?php include 'layouts/sidebar.php'; ?>
 
     <main class="app-main">
         <div class="app-content-header">
             <div class="container-fluid">
-                <div class="row">
+                <div class="row align-items-center">
                     <div class="col-sm-6">
-                        <h3 class="mb-0">Gestión de Clientes</h3>
+                        <h3 class="mb-0 fw-bold"><i class="fas fa-box-open text-primary me-2"></i>Paquetes y Límites</h3>
                     </div>
                     <div class="col-sm-6 text-end">
-                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNewTenant">
-                            <i class="bi bi-plus-lg"></i> Nueva Tienda
+                        <button class="btn btn-primary shadow-sm fw-bold" onclick="openPlanModal()">
+                            <i class="fas fa-plus-circle me-1"></i> Crear Nuevo Plan
                         </button>
                     </div>
                 </div>
@@ -24857,197 +26718,208 @@ $tenants = $conn->query("SELECT *, DATEDIFF(expiration_date, NOW()) as days_left
 
         <div class="app-content">
             <div class="container-fluid">
-                <div class="card card-outline card-primary shadow-sm">
-                    <div class="card-header">
-                        <h3 class="card-title">Listado de Tiendas</h3>
-                    </div>
-                    <div class="card-body p-0 table-responsive">
-                        <table class="table table-hover mb-0 align-middle">
-                            <thead>
-                                <tr>
-                                    <th class="text-center">ID</th>
-                                    <th>Negocio</th>
-                                    <th>Licencia</th>
-                                    <th>Estado</th>
-                                    <th>Vencimiento</th>
-                                    <th class="text-end pe-4">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach($tenants as $t): ?>
-                                <tr>
-                                    <td class="text-center"><?= $t['id'] ?></td>
-                                    <td>
-                                        <strong><?= htmlspecialchars($t['business_name']) ?></strong><br>
-                                        <small class="text-secondary">RIF: <?= htmlspecialchars($t['rif']) ?></small>
-                                    </td>
-                                    <td><span class="badge text-bg-dark border font-monospace"><?= $t['license_key'] ?></span></td>
-                                    <td>
-                                        <?php if($t['status'] == 'active'): ?>
-                                            <span class="badge text-bg-success">Activo</span>
-                                        <?php else: ?>
-                                            <span class="badge text-bg-danger">Suspendido</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <?= $t['expiration_date'] ?><br>
-                                        <?php if($t['days_left'] < 0): ?>
-                                            <span class="text-danger fw-bold small"><i class="bi bi-exclamation-triangle"></i> Vencido</span>
-                                        <?php else: ?>
-                                            <span class="text-info small"><?= $t['days_left'] ?> días restantes</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="text-end pe-3">
-                                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#renew<?= $t['id'] ?>" title="Renovar">
-                                            <i class="bi bi-arrow-repeat"></i>
-                                        </button>
-                                        
-                                        <form action="actions.php" method="POST" class="d-inline">
-                                            <input type="hidden" name="action" value="toggle_status">
-                                            <input type="hidden" name="id" value="<?= $t['id'] ?>">
-                                            <?php if($t['status']=='active'): ?>
-                                                <input type="hidden" name="status" value="suspended">
-                                                <button class="btn btn-sm btn-outline-danger" title="Suspender"><i class="bi bi-slash-circle"></i></button>
-                                            <?php else: ?>
-                                                <input type="hidden" name="status" value="active">
-                                                <button class="btn btn-sm btn-outline-success" title="Activar"><i class="bi bi-check-circle"></i></button>
-                                            <?php endif; ?>
-                                        </form>
-                                    </td>
-                                </tr>
-
-                                <div class="modal fade" id="renew<?= $t['id'] ?>" tabindex="-1">
-                                    <div class="modal-dialog modal-dialog-centered">
-                                        <form action="actions.php" method="POST" class="modal-content border-primary">
-                                            <div class="modal-header bg-primary text-white border-bottom-0">
-                                                <h5 class="modal-title">Renovar Suscripción</h5>
-                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <input type="hidden" name="action" value="renew">
-                                                <input type="hidden" name="id" value="<?= $t['id'] ?>">
-                                                <p>Tienda seleccionada: <strong class="text-primary"><?= $t['business_name'] ?></strong></p>
-                                                <div class="mb-3">
-                                                    <label class="form-label">Tiempo a agregar:</label>
-                                                    <select name="months" class="form-select">
-                                                        <option value="1">1 Mes</option>
-                                                        <option value="6">6 Meses</option>
-                                                        <option value="12">1 Año</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer border-top-0">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                <button type="submit" class="btn btn-primary">Aplicar Renovación</button>
-                                            </div>
-                                        </form>
-                                    </div>
+                <div class="row g-4 justify-content-center">
+                    <?php foreach($plans as $p): ?>
+                    <div class="col-md-6 col-xl-4">
+                        <div class="card h-100 shadow-sm border-0 <?= $p['price_usd'] > 0 ? 'border-top border-4 border-primary' : 'border-top border-4 border-secondary' ?>">
+                            <div class="card-body text-center p-4 d-flex flex-column">
+                                <h4 class="fw-bold text-uppercase"><?= htmlspecialchars($p['name']) ?></h4>
+                                <div class="my-3">
+                                    <span class="fs-1 fw-bold">$<?= number_format($p['price_usd'], 2) ?></span><span class="text-muted">/mes</span>
                                 </div>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                                <p class="text-muted small mb-4"><?= htmlspecialchars($p['description']) ?></p>
+                                
+                                <ul class="list-group list-group-flush text-start mb-4 flex-grow-1">
+                                    <li class="list-group-item bg-transparent">
+                                        <i class="fas fa-users text-primary me-2"></i> 
+                                        <strong><?= $p['max_users'] == 0 ? 'Ilimitados' : $p['max_users'] ?></strong> Usuarios/Cajeros
+                                    </li>
+                                    <li class="list-group-item bg-transparent">
+                                        <i class="fas fa-cubes text-primary me-2"></i> 
+                                        <strong><?= $p['max_products'] == 0 ? 'Ilimitados' : $p['max_products'] ?></strong> Productos
+                                    </li>
+                                </ul>
+
+                                <div class="d-flex gap-2 justify-content-center mt-auto">
+                                    <button class="btn btn-outline-warning w-50" onclick="editPlan(<?= $p['id'] ?>)">
+                                        <i class="fas fa-edit"></i> Editar
+                                    </button>
+                                    <button class="btn btn-outline-danger w-50" onclick="deletePlan(<?= $p['id'] ?>, '<?= htmlspecialchars(addslashes($p['name'])) ?>')">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
     </main>
 </div>
-<div class="modal fade" id="modalNewTenant" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <form action="actions.php" method="POST" class="modal-content border-success">
-            <div class="modal-header bg-success text-white border-bottom-0">
-                <h5 class="modal-title"><i class="bi bi-shop me-2"></i>Registrar Nuevo Cliente</h5>
+
+<div class="modal fade" id="modalPlan" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="formPlan" class="modal-content shadow border-0">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold" id="modalPlanTitle"><i class="fas fa-box me-2"></i> Plan de Suscripción</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <input type="hidden" name="action" value="create_tenant">
+            <div class="modal-body p-4">
+                <input type="hidden" name="action" value="save_plan">
+                <input type="hidden" name="id" id="plan_id">
                 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Nombre del Negocio</label>
-                        <input type="text" name="name" class="form-control" required>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">RIF</label>
-                        <input type="text" name="rif" class="form-control" required>
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Nombre del Plan</label>
+                    <input type="text" name="name" id="plan_name" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Precio Mensual (USD)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" step="0.01" name="price_usd" id="plan_price" class="form-control" required>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Usuario Admin (Para la tienda)</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" name="admin_user" class="form-control" placeholder="ej: admin" required>
-                        </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Límite Usuarios</label>
+                        <input type="number" name="max_users" id="plan_users" class="form-control" required>
+                        <small class="text-info">Pon 0 para ilimitado</small>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Contraseña</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-key"></i></span>
-                            <input type="text" name="admin_pass" class="form-control" required>
-                        </div>
+                    <div class="col-6">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Límite Productos</label>
+                        <input type="number" name="max_products" id="plan_products" class="form-control" required>
+                        <small class="text-info">Pon 0 para ilimitado</small>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Duración Inicial de la Licencia</label>
-                    <select name="months" class="form-select">
-                        <option value="1">1 Mes</option>
-                        <option value="12">1 Año</option>
-                    </select>
+                    <label class="form-label fw-bold small text-muted text-uppercase">Descripción Corta</label>
+                    <textarea name="description" id="plan_desc" class="form-control" rows="2"></textarea>
                 </div>
             </div>
-            <div class="modal-footer border-top-0">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-success">Crear y Activar Tienda</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="modal fade" id="modalBCV" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <form action="actions.php" method="POST" class="modal-content border-warning">
-            <div class="modal-header bg-warning text-dark border-bottom-0">
-                <h5 class="modal-title"><i class="bi bi-currency-exchange me-2"></i>Actualizar Tasa Global</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" name="action" value="update_bcv">
-                <div class="mb-3">
-                    <label class="form-label">Nueva Tasa (Bs/USD):</label>
-                    <input type="number" step="0.01" name="rate" class="form-control form-control-lg text-center" value="<?= $bcv['bcv_rate'] ?>" required>
-                </div>
-                <div class="alert alert-info py-2 mb-0 border-0">
-                    <small><i class="bi bi-info-circle me-1"></i> Esto actualizará los precios en BS de todas las tiendas de forma automática.</small>
-                </div>
-            </div>
-            <div class="modal-footer border-top-0">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-warning fw-bold text-dark">Guardar Tasa</button>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary fw-bold px-4"><i class="fas fa-save me-1"></i> Guardar Plan</button>
             </div>
         </form>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/browser/overlayscrollbars.browser.es6.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/js/adminlte.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="js/plans.js"></script>
 
-<script>
-    // Inicializar OverlayScrollbars
-    document.addEventListener("DOMContentLoaded", function() {
-        if (typeof OverlayScrollbarsGlobal?.OverlayScrollbars !== "undefined") {
-            OverlayScrollbarsGlobal.OverlayScrollbars(document.querySelector(".sidebar-wrapper"), {
-                scrollbars: {
-                    theme: "os-theme-light",
-                    autoHide: "leave",
-                    clickScroll: true,
-                },
-            });
+</body>
+</html> ```
+
+## Archivo: ./root/receipt.php
+ ```php
+<?php
+session_start();
+require_once '../config/db.php';
+
+if (!isset($_SESSION['is_superadmin']) || !isset($_GET['id'])) { 
+    die("Acceso denegado o ID inválido."); 
+}
+
+$database = new Database();
+$conn = $database->getConnection();
+
+$id = (int)$_GET['id'];
+
+// Obtener datos del pago cruzados con los datos de la tienda
+$sql = "SELECT p.*, t.business_name, t.rif 
+        FROM tenant_payments p 
+        JOIN tenants t ON p.tenant_id = t.id 
+        WHERE p.id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->execute([$id]);
+$payment = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$payment) {
+    die("Recibo no encontrado.");
+}
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recibo de Pago #<?= str_pad($payment['id'], 5, '0', STR_PAD_LEFT) ?></title>
+    <style>
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; background: #f4f6f9; display: flex; justify-content: center; padding: 20px; }
+        .receipt-card { background: #fff; width: 100%; max-width: 450px; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid #0d6efd; }
+        .header { text-align: center; margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+        .header h2 { margin: 0; color: #0d6efd; font-size: 24px; }
+        .header p { margin: 5px 0 0; color: #777; font-size: 14px; }
+        .details { width: 100%; margin-bottom: 20px; font-size: 15px; }
+        .details th { text-align: left; padding: 8px 0; color: #555; font-weight: normal; }
+        .details td { text-align: right; padding: 8px 0; font-weight: bold; }
+        .amount-box { background: #f8f9fa; padding: 15px; text-align: center; border-radius: 6px; margin-bottom: 20px; }
+        .amount-box span { display: block; font-size: 13px; color: #666; text-transform: uppercase; }
+        .amount-box h3 { margin: 5px 0 0; font-size: 32px; color: #198754; }
+        .footer { text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 20px; margin-top: 10px; }
+        .btn-print { display: block; width: 100%; padding: 12px; background: #0d6efd; color: #fff; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; }
+        @media print { 
+            body { background: #fff; padding: 0; }
+            .receipt-card { box-shadow: none; max-width: 100%; border: none; }
+            .btn-print { display: none; } 
         }
-    });
-</script>
+    </style>
+</head>
+<body>
+
+<div class="receipt-card">
+    <div class="header">
+        <h2>MultiPOS</h2>
+        <p>Recibo de Suscripción SaaS</p>
+        <p><strong>N° <?= str_pad($payment['id'], 6, '0', STR_PAD_LEFT) ?></strong></p>
+    </div>
+
+    <div class="amount-box">
+        <span>Total Pagado</span>
+        <h3>$<?= number_format($payment['amount_usd'], 2) ?></h3>
+    </div>
+
+    <table class="details">
+        <tr>
+            <th>Fecha de Pago:</th>
+            <td><?= date('d/m/Y h:i A', strtotime($payment['created_at'])) ?></td>
+        </tr>
+        <tr>
+            <th>Cliente:</th>
+            <td><?= htmlspecialchars($payment['business_name']) ?></td>
+        </tr>
+        <tr>
+            <th>RIF/C.I:</th>
+            <td><?= htmlspecialchars($payment['rif']) ?></td>
+        </tr>
+        <tr>
+            <th>Concepto:</th>
+            <td>Suscripción (<?= $payment['months_added'] ?> Meses)</td>
+        </tr>
+        <tr>
+            <th>Método:</th>
+            <td><?= htmlspecialchars($payment['payment_method']) ?></td>
+        </tr>
+        <?php if (!empty($payment['reference'])): ?>
+        <tr>
+            <th>Referencia:</th>
+            <td><?= htmlspecialchars($payment['reference']) ?></td>
+        </tr>
+        <?php endif; ?>
+    </table>
+
+    <div class="footer">
+        <p>¡Gracias por confiar en MultiPOS para su negocio!</p>
+        <p>Este comprobante certifica el pago de su licencia de uso.</p>
+    </div>
+
+    <button onclick="window.print()" class="btn-print mt-3">🖨️ Imprimir / Guardar PDF</button>
+</div>
+
 </body>
 </html> ```
 

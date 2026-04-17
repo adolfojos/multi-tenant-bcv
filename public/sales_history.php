@@ -115,7 +115,7 @@ include 'layouts/sidebar.php';
                                             </td>
 
                                             <td>
-                                                
+
                                                 <span class="badge bg-light border text-warning text-capitalize">
                                                     <?= str_replace('_', ' ', htmlspecialchars($s['payment_method'])) ?>
                                                 </span>
@@ -127,7 +127,6 @@ include 'layouts/sidebar.php';
 
                                             <td class="fw-bold text-success">$ <?= number_format($s['total_amount_usd'], 2) ?></td>
                                             <td class="fw-bold">Bs. <?= number_format($s['total_amount_bs'] ?? 0, 2) ?></td>
-
                                             <td class="text-end pe-4">
                                                 <div class="btn-group shadow-sm">
                                                     <a href="ticket.php?id=<?= $s['id'] ?>" target="_blank" class="btn btn-sm btn-outline-secondary me-1" title="Ver Ticket">
@@ -140,10 +139,13 @@ include 'layouts/sidebar.php';
                                                         <i class="fas fa-print"></i>
                                                     </button>
                                                     <?php if ($s['status'] !== 'anulada'): ?>
-                                                        <button type="button" class="btn btn-sm btn-outline-danger me-1" onclick="cancelSale(<?= $s['id'] ?>)" title="Anular Venta">
-                                                            <i class="fas fa-times-circle"></i>
-                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-outline-warning me-1" onclick="cancelSale(<?= $s['id'] ?>)" title="Anular Venta">
+                                                            <i class="fas fa-ban"></i> </button>
                                                     <?php endif; ?>
+
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSalePerm(<?= $s['id'] ?>)" title="Borrar Definitivamente">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -162,9 +164,10 @@ include 'layouts/sidebar.php';
     </div>
 </main>
 <?php
-    include 'layouts/footer.php';
-    include 'layouts/modals/modals_sales_history.php';
+include 'layouts/footer.php';
+include 'layouts/modals/modals_sales_history.php';
 ?>
+<script src="js/deleteSalePerm.js"></script>
 <script src="js/sales_history.js"></script>
 </body>
 

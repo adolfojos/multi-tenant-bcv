@@ -67,4 +67,5 @@ class User {
         }
         return ['status' => false, 'message' => 'Error al eliminar de la base de datos.'];
     }
+    
 }

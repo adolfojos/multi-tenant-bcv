@@ -249,4 +249,58 @@ class Sale
             return ["status" => "error", "message" => $e->getMessage()];
         }
     }
+    public function deleteSale($sale_id)
+    {
+        try {
+            $this->conn->beginTransaction();
+
+            // 1. Verificar existencia y estado actual de la venta
+            $stmt = $this->conn->prepare("SELECT status, payment_method FROM sales WHERE id = ? AND tenant_id = ? FOR UPDATE");
+            $stmt->execute([$sale_id, $this->tenant_id]);
+            $sale = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$sale) throw new Exception("Venta no encontrada.");
+
+            // 2. Si la venta NO estaba anulada, devolvemos el stock primero
+            if ($sale['status'] !== 'anulada') {
+                $items = $this->getSaleItems($sale_id);
+                $sqlStock = "UPDATE products SET stock = stock + ? WHERE id = ? AND tenant_id = ?";
+                $stmtStock = $this->conn->prepare($sqlStock);
+                foreach ($items as $item) {
+                    $stmtStock->execute([$item['quantity'], $item['product_id'], $this->tenant_id]);
+                }
+            }
+
+            // 3. Eliminar los items de la venta
+            $stmtDelItems = $this->conn->prepare("DELETE FROM sale_items WHERE sale_id = ?");
+            $stmtDelItems->execute([$sale_id]);
+
+            // 4. Si fue crédito, eliminar los abonos y el crédito asociado
+            if ($sale['payment_method'] === 'credito') {
+                $stmtGetCred = $this->conn->prepare("SELECT id FROM credits WHERE sale_id = ? AND tenant_id = ?");
+                $stmtGetCred->execute([$sale_id, $this->tenant_id]);
+                $credit = $stmtGetCred->fetch(PDO::FETCH_ASSOC);
+
+                if ($credit) {
+                    // Borrar pagos asociados al crédito
+                    $stmtDelPay = $this->conn->prepare("DELETE FROM credit_payments WHERE credit_id = ? AND tenant_id = ?");
+                    $stmtDelPay->execute([$credit['id'], $this->tenant_id]);
+                    
+                    // Borrar el registro del crédito
+                    $stmtDelCred = $this->conn->prepare("DELETE FROM credits WHERE id = ? AND tenant_id = ?");
+                    $stmtDelCred->execute([$credit['id'], $this->tenant_id]);
+                }
+            }
+
+            // 5. Finalmente, eliminar el encabezado de la venta
+            $stmtDelSale = $this->conn->prepare("DELETE FROM sales WHERE id = ? AND tenant_id = ?");
+            $stmtDelSale->execute([$sale_id, $this->tenant_id]);
+
+            $this->conn->commit();
+            return ["status" => "success", "message" => "Venta eliminada permanentemente y stock restaurado."];
+        } catch (Exception $e) {
+            if ($this->conn->inTransaction()) $this->conn->rollBack();
+            return ["status" => "error", "message" => $e->getMessage()];
+        }
+    }
 }

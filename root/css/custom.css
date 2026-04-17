@@ -1,0 +1,183 @@
+/* ==========================================================================
+   Tema Claro estilo Facebook para AdminLTE v4
+   ========================================================================== */
+
+:root,
+[data-bs-theme="light"] {
+  /* 1. Fondo principal de la página (Gris claro característico) */
+  --bs-body-bg: #f0f2f5;
+  --bs-body-bg-rgb: 240, 242, 245;
+
+  /* 2. Textos */
+  --bs-body-color: #050505; /* Texto principal (casi negro) */
+  --bs-body-color-rgb: 5, 5, 5;
+  --bs-secondary-color: #65676b; /* Texto secundario (gris medio) */
+  --bs-secondary-color-rgb: 101, 103, 107;
+
+  /* 3. Fondos secundarios (Hover y botones inactivos) */
+  --bs-secondary-bg: #e4e6eb;
+  --bs-secondary-bg-rgb: 228, 230, 235;
+  --bs-tertiary-bg: #e4e6eb;
+
+  /* 4. Bordes y separadores */
+  --bs-border-color: #ced0d4;
+  --bs-border-color-translucent: rgba(0, 0, 0, 0.1);
+
+  /* 5. Color Primario (El azul clásico) */
+  --bs-primary: #1877f2;
+  --bs-primary-rgb: 24, 119, 242;
+  --bs-link-color: #1877f2;
+  --bs-link-hover-color: #166fe5;
+}
+
+/* --------------------------------------------------------------------------
+   Ajustes específicos para componentes de AdminLTE (Tema Claro)
+   -------------------------------------------------------------------------- */
+
+/* Tarjetas (Cards) en blanco puro para que resalten sobre el fondo gris */
+:root .card,
+[data-bs-theme="light"] .card {
+  --bs-card-bg: #ffffff;
+  border-color: transparent; /* Se quitan los bordes duros */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); /* Sombra muy suave */
+  border-radius: 8px; /* Bordes ligeramente más redondeados */
+}
+
+/* Barra superior (Header) y barra lateral (Sidebar) en blanco */
+:root .app-header,
+[data-bs-theme="light"] .app-header,
+:root .app-sidebar,
+[data-bs-theme="light"] .app-sidebar {
+  background-color: #ffffff !important;
+  border-color: #ced0d4 !important;
+}
+
+/* Comportamiento del menú lateral (Hover y activo) */
+:root .app-sidebar,
+[data-bs-theme="light"] .app-sidebar {
+  --lte-sidebar-hover-bg: #f2f2f2; /* Gris muy suave al pasar el mouse */
+  --lte-sidebar-color: #050505;
+  --lte-sidebar-hover-color: #000000;
+  --lte-sidebar-menu-active-bg: #e7f3ff; /* Fondo azul muy claro para el item activo */
+  --lte-sidebar-menu-active-color: #1877f2; /* Texto azul para el item activo */
+}
+
+/* Formularios, inputs y selects */
+:root .form-control,
+:root .form-select,
+[data-bs-theme="light"] .form-control,
+[data-bs-theme="light"] .form-select {
+  background-color: #f0f2f5; /* Fondo gris claro en reposo */
+  border-color: transparent;
+  color: #050505;
+  border-radius: 6px;
+}
+
+:root .form-control:focus,
+:root .form-select:focus,
+[data-bs-theme="light"] .form-control:focus,
+[data-bs-theme="light"] .form-select:focus {
+  background-color: #ffffff; /* Se iluminan a blanco al escribir */
+  border-color: #1877f2;
+  box-shadow: 0 0 0 0.25rem rgba(24, 119, 242, 0.25);
+}
+
+
+
+/* ==========================================================================
+   Modo Oscuro estilo Facebook para AdminLTE v4
+   ========================================================================== */
+
+[data-bs-theme="dark"] {
+  /* 1. Fondo principal de la página (Gris muy oscuro) */
+  --bs-body-bg: #18191a;
+  --bs-body-bg-rgb: 24, 25, 26;
+
+  /* 2. Textos */
+  --bs-body-color: #e4e6eb; /* Texto principal (casi blanco) */
+  --bs-body-color-rgb: 228, 230, 235;
+  --bs-secondary-color: #b0b3b8; /* Texto secundario (gris claro) */
+  --bs-secondary-color-rgb: 176, 179, 184;
+
+  /* 3. Fondos secundarios (Hover y elementos inactivos) */
+  --bs-secondary-bg: #3a3b3c;
+  --bs-secondary-bg-rgb: 23, 23, 23;
+  --bs-tertiary-bg: #3a3b3c;
+
+  /* 4. Bordes y separadores */
+  --bs-border-color: #3e4042;
+  --bs-border-color-translucent: rgba(255, 255, 255, 0.1);
+
+  /* 5. Color Primario (El azul característico adaptado para modo oscuro) */
+  --bs-primary: #2d88ff;
+  --bs-primary-rgb: 45, 136, 255;
+  --bs-link-color: #2d88ff;
+  --bs-link-hover-color: #5c9eff;
+}
+
+/* --------------------------------------------------------------------------
+   Ajustes específicos para componentes de AdminLTE
+   -------------------------------------------------------------------------- */
+
+/* Tarjetas (Cards) y paneles con el gris de superficie de FB */
+[data-bs-theme="dark"] .card {
+  --bs-card-bg: #242526;
+  border-color: #3e4042;
+}
+
+/* Barra superior (Header) y barra lateral (Sidebar) */
+[data-bs-theme="dark"] .app-header,
+[data-bs-theme="dark"] .app-sidebar {
+  background-color: #242526 !important;
+  border-color: #3e4042 !important;
+}
+
+/* Comportamiento del menú lateral (Hover y activo) */
+[data-bs-theme="dark"] .app-sidebar {
+  --lte-sidebar-hover-bg: #3a3b3c;
+  --lte-sidebar-color: #e4e6eb;
+  --lte-sidebar-hover-color: #ffffff;
+  --lte-sidebar-menu-active-bg: rgba(45, 136, 255, 0.15); /* Fondo azul sutil */
+  --lte-sidebar-menu-active-color: #2d88ff;
+}
+
+/* Formularios, inputs y selects */
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+  background-color: #3a3b3c;
+  border-color: #3e4042;
+  color: #e4e6eb;
+}
+
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+  background-color: #3a3b3c;
+  border-color: #2d88ff;
+  box-shadow: 0 0 0 0.25rem rgba(45, 136, 255, 0.25);
+}
+
+[data-bs-theme="dark"] .bg-light {
+    --bs-bg-opacity: 1;
+    background-color
+: rgb(24 25 26) !important;
+}
+[data-bs-theme="dark"] .bg-primary {
+    background-color: rgb(24 25 26) !important;
+}
+
+[data-bs-theme="dark"] .text-bg-primary {
+    color: rgb(36 37 38) !important;
+        background-color: rgb(36 37 38) !important;
+    
+}
+
+.product-item .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
+}
+.product-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Esto evita que la imagen se deforme */
+    padding: 5px;
+}
