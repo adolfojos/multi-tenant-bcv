@@ -181,3 +181,35 @@
     object-fit: contain; /* Esto evita que la imagen se deforme */
     padding: 5px;
 }
+/* Prevenir selección de texto global, permitiéndola solo en inputs */
+body {
+    -webkit-user-select: none;
+    user-select: none;
+    overflow: hidden; /* Elimina el scroll del body entero */
+}
+
+input, textarea {
+    -webkit-user-select: auto;
+    user-select: auto;
+}
+
+/* Evitar el arrastre fantasma de imágenes y enlaces */
+img, a {
+    -webkit-user-drag: none;
+}
+
+/* Área de scroll restringida al contenido principal */
+.app-main {
+    height: calc(100vh - 56px); /* 56px = altura aproximada del navbar */
+    overflow-y: auto;
+    overscroll-behavior-y: contain; /* Evita el "pull-to-refresh" en móviles/trackpads */
+}
+
+/* Ocultar scrollbars nativos para mayor limpieza (opcional) */
+.app-main::-webkit-scrollbar {
+    width: 6px;
+}
+.app-main::-webkit-scrollbar-thumb {
+    background-color: var(--bs-secondary-color);
+    border-radius: 10px;
+}

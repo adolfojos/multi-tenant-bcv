@@ -16,9 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     if ($result === "OK") {
         if ($role === 'admin') {
-            header("Location: admin.php"); // Redirigimos al nuevo admin estilizado
+            header("Location: pos.php"); // Redirigimos al nuevo admin estilizado
         } else {
-            header("Location: dashboard.php");
+            header("Location: pos.php");
         }
         exit;
     } elseif ($result === "SUSPENDED") {

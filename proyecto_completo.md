@@ -22818,6 +22818,7 @@ function saveUser(e) {
         document.documentElement.setAttribute('data-bs-theme', theme);
     </script>
     <!-- 1. Tipografías -->
+     <link rel="stylesheet" href="./plugins/fontsource/index.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q=" crossorigin="anonymous" />
     <!-- 2. Plugins de Terceros (CSS) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css" crossorigin="anonymous" />
@@ -25205,7 +25206,8 @@ if (!isset($_SESSION['is_superadmin'])) {
 
 $database = new Database();
 $conn = $database->getConnection();
-
+$tenant_name ="MultiPOS";
+$pageTitle = "Inventario - " . $tenant_name;
 // --- 1. MÉTRICAS GENERALES ---
 $totalTenants = $conn->query("SELECT COUNT(*) FROM tenants")->fetchColumn();
 $activeTenants = $conn->query("SELECT COUNT(*) FROM tenants WHERE status = 'active'")->fetchColumn();
@@ -25235,25 +25237,8 @@ $chartData = $chartQuery->fetchAll(PDO::FETCH_ASSOC);
 // Preparamos los datos para JavaScript
 $chartLabels = json_encode(array_column($chartData, 'month'));
 $chartSeries = json_encode(array_column($chartData, 'total'));
-
+include 'layouts/head.php';
 ?>
-<!DOCTYPE html>
-<html lang="es" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Analítico - SuperAdmin | MultiPOS</title>
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/styles/overlayscrollbars.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/css/adminlte.min.css">
-</head>
-<body class="layout-fixed sidebar-expand-lg bg-body">
-
-<div class="app-wrapper">
-    
     <nav class="app-header navbar navbar-expand bg-body shadow-sm">
         <div class="container-fluid">
             <ul class="navbar-nav">
@@ -25919,6 +25904,25 @@ document.addEventListener("DOMContentLoaded", function() {
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="js/panel.js"></script> ```
 
+## Archivo: ./root/layouts/head.php
+ ```php
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= isset($pageTitle) ? $pageTitle : 'Mi Negocio' ?></title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/styles/overlayscrollbars.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="./css/custom.css" />
+</head>
+<body class="layout-fixed sidebar-expand-lg bg-body">
+    <div class="app-wrapper"> ```
+
 ## Archivo: ./root/layouts/modals/modals_panel.php
  ```php
     <div class="modal fade" id="modalNewTenant" tabindex="-1">
@@ -26184,7 +26188,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <p>Historial de Pagos</p>
                     </a>
                 </li>
-
+                <li class="nav-item">
+                    <a href="plans.php" class="nav-link <?= $currentPage == 'plans.php' ? 'active' : '' ?>">
+                        <i class="nav-icon fas fas fa-box-open text-warning"></i>
+                        <p>Paquetes y Límites</p>
+                    </a>
+                </li>
                 <li class="nav-header text-uppercase opacity-75 small fw-bold mt-3">Sistema</li>
                 <li class="nav-item">
                     <a href="logout.php" class="nav-link">
@@ -26317,7 +26326,8 @@ if (!isset($_SESSION['is_superadmin'])) {
 
 $database = new Database();
 $conn = $database->getConnection();
-
+$tenant_name ="MultiPOS";
+$pageTitle = "Panel - " . $tenant_name;
 $bcvQuery = $conn->query("SELECT bcv_rate FROM system_settings WHERE id=1");
 $bcv = $bcvQuery->fetch(PDO::FETCH_ASSOC);
 
@@ -26330,27 +26340,8 @@ $tenants = $conn->query("
 
 // Obtener los planes para llenar el select del modal
 $allPlans = $conn->query("SELECT id, name FROM plans ORDER BY price_usd ASC")->fetchAll(PDO::FETCH_ASSOC);
+include 'layouts/head.php';
 ?>
-<!DOCTYPE html>
-<html lang="es" data-bs-theme="dark">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - SuperAdmin | MultiPOS</title>
-
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/styles/overlayscrollbars.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/css/adminlte.min.css">
-    <link rel="stylesheet" href="./css/custom.css" />
-</head>
-
-<body class="layout-fixed sidebar-expand-lg bg-body">
-
-    <div class="app-wrapper">
-
         <nav class="app-header navbar navbar-expand bg-body shadow-sm">
             <div class="container-fluid">
                 <ul class="navbar-nav">
@@ -26499,6 +26490,8 @@ if (!isset($_SESSION['is_superadmin'])) {
 $database = new Database();
 $conn = $database->getConnection();
 
+$tenant_name ="MultiPOS";
+$pageTitle = "SuperAdmin - " . $tenant_name;
 // --- 1. MÉTRICAS FINANCIERAS ---
 // Ingresos Totales Históricos
 $totalRevenue = $conn->query("SELECT COALESCE(SUM(amount_usd), 0) FROM tenant_payments")->fetchColumn();
@@ -26516,25 +26509,8 @@ $sql = "SELECT p.*, t.business_name, t.rif
         JOIN tenants t ON p.tenant_id = t.id 
         ORDER BY p.created_at DESC";
 $payments = $conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
-
-?>
-<!DOCTYPE html>
-<html lang="es" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Historial de Pagos - SuperAdmin | MultiPOS</title>
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/styles/overlayscrollbars.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/css/adminlte.min.css">
-</head>
-<body class="layout-fixed sidebar-expand-lg bg-body">
-
-<div class="app-wrapper">
-    
+include 'layouts/head.php';
+?> 
     <nav class="app-header navbar navbar-expand bg-body shadow-sm">
         <div class="container-fluid">
             <ul class="navbar-nav">
@@ -26670,26 +26646,12 @@ if (!isset($_SESSION['is_superadmin'])) { header("Location: login.php"); exit; }
 
 $database = new Database();
 $conn = $database->getConnection();
-
+$tenant_name ="MultiPOS";
+$pageTitle = "Planes de Suscripción  - " . $tenant_name;
 $plans = $conn->query("SELECT * FROM plans ORDER BY price_usd ASC")->fetchAll(PDO::FETCH_ASSOC);
+include 'layouts/head.php';
 ?>
-<!DOCTYPE html>
-<html lang="es" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planes de Suscripción - SuperAdmin | MultiPOS</title>
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/styles/overlayscrollbars.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/css/adminlte.min.css">
-</head>
-<body class="layout-fixed sidebar-expand-lg bg-body">
-
-<div class="app-wrapper">
-    
+  
     <nav class="app-header navbar navbar-expand bg-body shadow-sm">
         <div class="container-fluid">
             <ul class="navbar-nav">

@@ -34,7 +34,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <p>Historial de Pagos</p>
                     </a>
                 </li>
-
+                <li class="nav-item">
+                    <a href="plans.php" class="nav-link <?= $currentPage == 'plans.php' ? 'active' : '' ?>">
+                        <i class="nav-icon fas fas fa-box-open text-warning"></i>
+                        <p>Paquetes y Límites</p>
+                    </a>
+                </li>
                 <li class="nav-header text-uppercase opacity-75 small fw-bold mt-3">Sistema</li>
                 <li class="nav-item">
                     <a href="logout.php" class="nav-link">

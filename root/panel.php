@@ -9,7 +9,8 @@ if (!isset($_SESSION['is_superadmin'])) {
 
 $database = new Database();
 $conn = $database->getConnection();
-
+$tenant_name ="MultiPOS";
+$pageTitle = "Panel - " . $tenant_name;
 $bcvQuery = $conn->query("SELECT bcv_rate FROM system_settings WHERE id=1");
 $bcv = $bcvQuery->fetch(PDO::FETCH_ASSOC);
 
@@ -22,27 +23,8 @@ $tenants = $conn->query("
 
 // Obtener los planes para llenar el select del modal
 $allPlans = $conn->query("SELECT id, name FROM plans ORDER BY price_usd ASC")->fetchAll(PDO::FETCH_ASSOC);
+include 'layouts/head.php';
 ?>
-<!DOCTYPE html>
-<html lang="es" data-bs-theme="dark">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - SuperAdmin | MultiPOS</title>
-
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/styles/overlayscrollbars.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/css/adminlte.min.css">
-    <link rel="stylesheet" href="./css/custom.css" />
-</head>
-
-<body class="layout-fixed sidebar-expand-lg bg-body">
-
-    <div class="app-wrapper">
-
         <nav class="app-header navbar navbar-expand bg-body shadow-sm">
             <div class="container-fluid">
                 <ul class="navbar-nav">
