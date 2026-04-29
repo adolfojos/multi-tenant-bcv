@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#1877F2">
-    <link rel="manifest" href="./manifest.json">
+    <link rel="manifest" href="/multi-tenant-bcv/public/manifest.json">
     <title><?= isset($pageTitle) ? $pageTitle : 'Mi Negocio' ?></title>
     <!-- Script de Tema (Ejecutar lo antes posible para evitar parpadeo blanco) -->
     <script>

@@ -160,9 +160,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     if ($result === "OK") {
         if ($role === 'admin') {
-            header("Location: admin.php"); // Redirigimos al nuevo admin estilizado
+            header("Location: pos.php"); // Redirigimos al nuevo admin estilizado
         } else {
-            header("Location: dashboard.php");
+            header("Location: pos.php");
         }
         exit;
     } elseif ($result === "SUSPENDED") {
@@ -19638,7 +19638,38 @@ fieldset legend {
     object-fit: contain; /* Esto evita que la imagen se deforme */
     padding: 5px;
 }
- ```
+/* Prevenir selección de texto global, permitiéndola solo en inputs */
+body {
+    -webkit-user-select: none;
+    user-select: none;
+    overflow: hidden; /* Elimina el scroll del body entero */
+}
+
+input, textarea {
+    -webkit-user-select: auto;
+    user-select: auto;
+}
+
+/* Evitar el arrastre fantasma de imágenes y enlaces */
+img, a {
+    -webkit-user-drag: none;
+}
+
+/* Área de scroll restringida al contenido principal */
+.app-main {
+    height: calc(100vh - 56px); /* 56px = altura aproximada del navbar */
+    overflow-y: auto;
+    overscroll-behavior-y: contain; /* Evita el "pull-to-refresh" en móviles/trackpads */
+}
+
+/* Ocultar scrollbars nativos para mayor limpieza (opcional) */
+.app-main::-webkit-scrollbar {
+    width: 6px;
+}
+.app-main::-webkit-scrollbar-thumb {
+    background-color: var(--bs-secondary-color);
+    border-radius: 10px;
+} ```
 
 ## Archivo: ./public/customers.php
  ```php
@@ -22390,6 +22421,44 @@ function escapeHtml(unsafe) {
          .replace(/'/g, "&#039;");
 } ```
 
+## Archivo: ./public/js/pwa-install.js
+ ```javascript
+let deferredPrompt;
+const installBtn = document.createElement('button');
+installBtn.className = 'btn btn-warning btn-sm fw-bold ms-2 d-none';
+installBtn.innerHTML = '<i class="fas fa-download me-1"></i> Instalar App';
+
+// Insertar botón en el Navbar (ajusta el selector según tu HTML)
+document.querySelector('.app-header .navbar-nav.ms-auto').prepend(installBtn);
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Previene que Chrome muestre el mini-infobar automáticamente
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Muestra nuestro botón personalizado
+    installBtn.classList.remove('d-none');
+
+    installBtn.addEventListener('click', async () => {
+        // Oculta el botón
+        installBtn.classList.add('d-none');
+        // Muestra el prompt nativo de instalación
+        deferredPrompt.prompt();
+        // Espera la decisión del usuario
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            console.log('El usuario aceptó la instalación de MultiPOS');
+        }
+        deferredPrompt = null;
+    });
+});
+
+// Detectar si ya se está ejecutando como App
+window.addEventListener('appinstalled', () => {
+    installBtn.classList.add('d-none');
+    console.log('MultiPOS instalado correctamente');
+}); ```
+
 ## Archivo: ./public/js/sales.js
  ```javascript
 document.addEventListener("DOMContentLoaded", function() {
@@ -22704,24 +22773,22 @@ function saveUser(e) {
             All rights reserved.
         </footer>
     </div> <!-- Cierre del wrapper principal -->
-
+    <script src="js/pwa-install.js"></script>
+    <script src="sw.js"></script>
     <!-- 1. OverlayScrollbars (Cargar antes para que el layout lo use) -->
-    <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/browser/overlayscrollbars.browser.es6.min.js" crossorigin="anonymous"></script>
+    <script src="assets/vendor/overlayscrollbars/overlayscrollbars.browser.es6.min.js"></script>
 
     <!-- 2. Bootstrap 5.3.3 BUNDLE (Incluye Popper.js, no necesitas más de Bootstrap) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 
     <!-- 3. AdminLTE 4 (Solo una vez) -->
-    <script src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/js/adminlte.min.js"></script>
-
+     <script src="js/adminlte.min.js"></script>
     <!-- 4. Plugins adicionales (Gráficos, Mapas, Sortable) -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.37.1/dist/apexcharts.min.js" integrity="sha256-+vh8GkaU7C9/wbSLIcwq82tQ2wTf44aOHA8HlBMwRI8=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/js/jsvectormap.min.js" integrity="sha256-/t1nN2956BT869E6H4V1dnt0X5pAQHPytli+1nTZm2Y=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/maps/world.js" integrity="sha256-XPpPaZlU8S/HWf7FZLAncLg2SAkP8ScUTII89x9D3lY=" crossorigin="anonymous"></script>
-	<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script> ```
+    <script src="assets/vendor/sortablejs/Sortable.min.js"></script>
+    <script src="assets/vendor/apexcharts/apexcharts.min.js"></script>  
+    <script src="assets/vendor/jquery/jquery.min.js"></script>
+    <script src="assets/vendor/datatables/jquery.dataTables.min.js"></script>
+    <script src="assets/vendor/datatables/dataTables.bootstrap5.min.js"></script> ```
 
 ## Archivo: ./public/layouts/footer_landing.php
  ```php
@@ -22807,27 +22874,25 @@ function saveUser(e) {
 <html lang="es" data-bs-theme="dark">
 <head>
    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no">
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#1877F2">
+    <link rel="manifest" href="./manifest.json">
     <title><?= isset($pageTitle) ? $pageTitle : 'Mi Negocio' ?></title>
     <!-- Script de Tema (Ejecutar lo antes posible para evitar parpadeo blanco) -->
     <script>
         const theme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-bs-theme', theme);
     </script>
-    <!-- 1. Tipografías -->
-     <link rel="stylesheet" href="./plugins/fontsource/index.css">
+   
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q=" crossorigin="anonymous" />
-    <!-- 2. Plugins de Terceros (CSS) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css" crossorigin="anonymous" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.37.1/dist/apexcharts.css" integrity="sha256-4MX+61mt9NVvvuPjUWdUdyfZfxSB1/Rf9WtqRHgG5S0=" crossorigin="anonymous" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/css/jsvectormap.min.css" integrity="sha256-+uGLJmmTKOqBr+2E6KDYs/NRsHxSkONXFHUL0fy2O/4=" crossorigin="anonymous" />
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
-    <!-- 3. AdminLTE (Tu estilo principal al final para que pueda sobreescribir si es necesario) -->
+    <link rel="stylesheet" href="assets/vendor/overlayscrollbars/overlayscrollbars.min.css">
+    <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="assets/vendor/apexcharts/apexcharts.css">
+    <link rel="stylesheet" href="assets/vendor/datatables/dataTables.bootstrap5.min.css">
     <link rel="preload" href="./css/adminlte.css" as="style" />
     <link rel="stylesheet" href="./css/adminlte.css" />
     <link rel="stylesheet" href="./css/custom.css" />
@@ -24521,6 +24586,56 @@ try {
     // TIP: Imprimir el $e->getMessage() te ayudará a ver el error real si falla en el futuro
     echo json_encode(['status' => 'error', 'message' => 'Error BD: ' . $e->getMessage()]);
 } ```
+
+## Archivo: ./public/sw.js
+ ```javascript
+const CACHE_NAME = 'multipos-cache-v1';
+const STATIC_ASSETS = [
+    '/multi-tenant-bcv/public/css/adminlte.css',
+    '/multi-tenant-bcv/public/css/custom.css',
+    '/multi-tenant-bcv/public/js/adminlte.js',
+    '/multi-tenant-bcv/public/js/pos.js',
+    // Añade aquí tus fuentes e iconos locales
+];
+
+// Instalación y Caché Inicial
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    );
+    self.skipWaiting();
+});
+
+// Limpieza de Caché antigua
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((keys) => {
+            return Promise.all(
+                keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+            );
+        })
+    );
+    self.clients.claim();
+});
+
+// Interceptando Peticiones
+self.addEventListener('fetch', (event) => {
+    const isApiCall = event.request.url.includes('.php');
+
+    if (isApiCall) {
+        // Network-First para archivos PHP (Datos en tiempo real)
+        event.respondWith(
+            fetch(event.request).catch(() => caches.match(event.request))
+        );
+    } else {
+        // Cache-First para recursos estáticos
+        event.respondWith(
+            caches.match(event.request).then((cachedResponse) => {
+                return cachedResponse || fetch(event.request);
+            })
+        );
+    }
+}); ```
 
 ## Archivo: ./public/ticket.php
  ```php
