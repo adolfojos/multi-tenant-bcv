@@ -1,3 +1,6 @@
+<?php
+header('Content-Type: application/manifest+json; charset=utf-8');
+?>
 {
   "name": "MultiPOS - Gestión Unificada",
   "short_name": "MultiPOS",
@@ -5,7 +8,7 @@
   "start_url": "./admin.php",
   "display": "standalone",
   "background_color": "#f8f9fa",
-  "theme_color":"#1877F2",
+  "theme_color": "#080808",
   "orientation": "any",
   "icons": [
     {
