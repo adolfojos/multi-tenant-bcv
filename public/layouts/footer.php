@@ -24,3 +24,4 @@
     <script src="assets/vendor/jquery/jquery.min.js"></script>
     <script src="assets/vendor/datatables/jquery.dataTables.min.js"></script>
     <script src="assets/vendor/datatables/dataTables.bootstrap5.min.js"></script>
+    

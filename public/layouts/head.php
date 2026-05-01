@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#1877F2">
-    <link rel="manifest" href="./manifest.php">
+    <link rel="manifest" href="./manifest.json">
   
     <title><?= isset($pageTitle) ? $pageTitle : 'Mi Negocio' ?></title>
     <!-- Script de Tema (Ejecutar lo antes posible para evitar parpadeo blanco) -->
@@ -17,6 +17,7 @@
     </script>
    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q=" crossorigin="anonymous" />
+    
     <link rel="stylesheet" href="assets/vendor/overlayscrollbars/overlayscrollbars.min.css">
     <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
     <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">

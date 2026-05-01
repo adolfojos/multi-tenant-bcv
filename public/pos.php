@@ -164,7 +164,7 @@ include 'layouts/modals/modals_pos.php';
 <script>
     window.APP_BCV_RATE = <?= $bcvRate ?>;
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
 <script src="js/pos.js"></script>
 </body>
 

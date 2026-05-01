@@ -62,7 +62,7 @@ include 'layouts/footer.php';
 include 'layouts/modals/modals_customer.php';
 ?>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
 <script src="js/customers.js"></script>
 </body>
 

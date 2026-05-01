@@ -3463,7 +3463,7 @@ include 'layouts/modals/modals_admin.php';
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
 <script src="js/admin.js"></script>
 </body>
 
@@ -3555,7 +3555,7 @@ include 'layouts/footer.php';
 include 'layouts/modals/modals_category.php';
 ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
 <script src="js/categories.js"></script>
 </body>
 </html> ```
@@ -3849,7 +3849,7 @@ include 'layouts/sidebar.php';
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
 <script>
     window.APP_BCVRATE = <?= $bcvRate ?>;
 </script>
@@ -19737,7 +19737,7 @@ include 'layouts/footer.php';
 include 'layouts/modals/modals_customer.php';
 ?>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
 <script src="js/customers.js"></script>
 </body>
 
@@ -24150,7 +24150,7 @@ include 'layouts/modals/modals_pos.php';
 <script>
     window.APP_BCV_RATE = <?= $bcvRate ?>;
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
 <script src="js/pos.js"></script>
 </body>
 
@@ -24867,7 +24867,7 @@ include 'layouts/sidebar.php';
 include 'layouts/footer.php';
 include 'layouts/modals/modals_users.php';
 ?>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
 <script src="js/users.js"></script>
 </body>
 
@@ -26017,7 +26017,7 @@ document.addEventListener("DOMContentLoaded", function() {
     <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/browser/overlayscrollbars.browser.es6.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/js/adminlte.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
     <script src="js/panel.js"></script> ```
 
 ## Archivo: ./root/layouts/head.php
@@ -26886,7 +26886,7 @@ include 'layouts/head.php';
 <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.3.0/browser/overlayscrollbars.browser.es6.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta2/dist/js/adminlte.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
 <script src="js/plans.js"></script>
 
 </body>

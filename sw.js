@@ -1,9 +1,9 @@
 const CACHE_NAME = 'multipos-cache-v1';
 const STATIC_ASSETS = [
-    '/multi-tenant-bcv/public/css/adminlte.css',
-    '/multi-tenant-bcv/public/css/custom.css',
-    '/multi-tenant-bcv/public/js/adminlte.js',
-    '/multi-tenant-bcv/public/js/pos.js',
+    './css/adminlte.css',
+    './css/custom.css',
+    './js/adminlte.js',
+    './js/pos.js',
     // Añade aquí tus fuentes e iconos locales
 ];
 
