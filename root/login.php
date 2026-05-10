@@ -2,7 +2,7 @@
 session_start();
 // CONFIGURACIÓN DE ACCESO MAESTRO
 define('MASTER_USER', 'root');     // Cambia esto
-define('MASTER_PASS', 'root');     // Cambia esto por una contraseña fuerte
+define('MASTER_PASS', '3]l]XHlehsGm"IY8qKOdVzIN88QVLx+/xyxTUm(&i+[Hgsee#?');     // Cambia esto por una contraseña fuerte
 
 $error = '';
 

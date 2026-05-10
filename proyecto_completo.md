@@ -3312,7 +3312,6 @@ try {
 require_once '../controllers/AdminController.php';
 include 'layouts/head.php';
 // Agregamos el CSS de DataTables (si prefieres, muévelo a layouts/head.php)
-echo '<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">';
 include 'layouts/navbar.php';
 include 'layouts/sidebar.php';
 ?>
@@ -3468,6 +3467,78 @@ include 'layouts/modals/modals_admin.php';
 </body>
 
 </html> ```
+
+## Archivo: ./public/assets/fonts/source-sans-3/index.css
+ ```css
+/* source-sans-3-cyrillic-ext-400-normal */
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/source-sans-3-cyrillic-ext-400-normal.woff2) format('woff2'), url(./files/source-sans-3-cyrillic-ext-400-normal.woff) format('woff');
+  unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+
+/* source-sans-3-cyrillic-400-normal */
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/source-sans-3-cyrillic-400-normal.woff2) format('woff2'), url(./files/source-sans-3-cyrillic-400-normal.woff) format('woff');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+
+/* source-sans-3-greek-ext-400-normal */
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/source-sans-3-greek-ext-400-normal.woff2) format('woff2'), url(./files/source-sans-3-greek-ext-400-normal.woff) format('woff');
+  unicode-range: U+1F00-1FFF;
+}
+
+/* source-sans-3-greek-400-normal */
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/source-sans-3-greek-400-normal.woff2) format('woff2'), url(./files/source-sans-3-greek-400-normal.woff) format('woff');
+  unicode-range: U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;
+}
+
+/* source-sans-3-vietnamese-400-normal */
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/source-sans-3-vietnamese-400-normal.woff2) format('woff2'), url(./files/source-sans-3-vietnamese-400-normal.woff) format('woff');
+  unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;
+}
+
+/* source-sans-3-latin-ext-400-normal */
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/source-sans-3-latin-ext-400-normal.woff2) format('woff2'), url(./files/source-sans-3-latin-ext-400-normal.woff) format('woff');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* source-sans-3-latin-400-normal */
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/source-sans-3-latin-400-normal.woff2) format('woff2'), url(./files/source-sans-3-latin-400-normal.woff) format('woff');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+} ```
 
 ## Archivo: ./public/categories.php
  ```php
@@ -22788,7 +22859,8 @@ function saveUser(e) {
     <script src="assets/vendor/apexcharts/apexcharts.min.js"></script>  
     <script src="assets/vendor/jquery/jquery.min.js"></script>
     <script src="assets/vendor/datatables/jquery.dataTables.min.js"></script>
-    <script src="assets/vendor/datatables/dataTables.bootstrap5.min.js"></script> ```
+    <script src="assets/vendor/datatables/dataTables.bootstrap5.min.js"></script>
+     ```
 
 ## Archivo: ./public/layouts/footer_landing.php
  ```php
@@ -22879,8 +22951,8 @@ function saveUser(e) {
     <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#1877F2">
-    <link rel="manifest" href="./manifest.json">
-    <link rel="manifest" href="/multi-tenant-bcv/public/manifest.json">
+    <link rel="manifest" href="manifest.json">
+  
     <title><?= isset($pageTitle) ? $pageTitle : 'Mi Negocio' ?></title>
     <!-- Script de Tema (Ejecutar lo antes posible para evitar parpadeo blanco) -->
     <script>
@@ -22889,6 +22961,7 @@ function saveUser(e) {
     </script>
    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q=" crossorigin="anonymous" />
+    
     <link rel="stylesheet" href="assets/vendor/overlayscrollbars/overlayscrollbars.min.css">
     <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
     <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
@@ -24588,56 +24661,6 @@ try {
     echo json_encode(['status' => 'error', 'message' => 'Error BD: ' . $e->getMessage()]);
 } ```
 
-## Archivo: ./public/sw.js
- ```javascript
-const CACHE_NAME = 'multipos-cache-v1';
-const STATIC_ASSETS = [
-    '/multi-tenant-bcv/public/css/adminlte.css',
-    '/multi-tenant-bcv/public/css/custom.css',
-    '/multi-tenant-bcv/public/js/adminlte.js',
-    '/multi-tenant-bcv/public/js/pos.js',
-    // Añade aquí tus fuentes e iconos locales
-];
-
-// Instalación y Caché Inicial
-self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-    );
-    self.skipWaiting();
-});
-
-// Limpieza de Caché antigua
-self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then((keys) => {
-            return Promise.all(
-                keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-            );
-        })
-    );
-    self.clients.claim();
-});
-
-// Interceptando Peticiones
-self.addEventListener('fetch', (event) => {
-    const isApiCall = event.request.url.includes('.php');
-
-    if (isApiCall) {
-        // Network-First para archivos PHP (Datos en tiempo real)
-        event.respondWith(
-            fetch(event.request).catch(() => caches.match(event.request))
-        );
-    } else {
-        // Cache-First para recursos estáticos
-        event.respondWith(
-            caches.match(event.request).then((cachedResponse) => {
-                return cachedResponse || fetch(event.request);
-            })
-        );
-    }
-}); ```
-
 ## Archivo: ./public/ticket.php
  ```php
 <?php
@@ -26328,7 +26351,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 session_start();
 // CONFIGURACIÓN DE ACCESO MAESTRO
 define('MASTER_USER', 'root');     // Cambia esto
-define('MASTER_PASS', 'root');     // Cambia esto por una contraseña fuerte
+define('MASTER_PASS', '3]l]XHlehsGm"IY8qKOdVzIN88QVLx+/xyxTUm(&i+[Hgsee#?');     // Cambia esto por una contraseña fuerte
 
 $error = '';
 
@@ -27000,4 +27023,54 @@ if (!$payment) {
 
 </body>
 </html> ```
+
+## Archivo: ./sw.js
+ ```javascript
+const CACHE_NAME = 'multipos-cache-v1';
+const STATIC_ASSETS = [
+    './css/adminlte.css',
+    './css/custom.css',
+    './js/adminlte.js',
+    './js/pos.js',
+    // Añade aquí tus fuentes e iconos locales
+];
+
+// Instalación y Caché Inicial
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    );
+    self.skipWaiting();
+});
+
+// Limpieza de Caché antigua
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((keys) => {
+            return Promise.all(
+                keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+            );
+        })
+    );
+    self.clients.claim();
+});
+
+// Interceptando Peticiones
+self.addEventListener('fetch', (event) => {
+    const isApiCall = event.request.url.includes('.php');
+
+    if (isApiCall) {
+        // Network-First para archivos PHP (Datos en tiempo real)
+        event.respondWith(
+            fetch(event.request).catch(() => caches.match(event.request))
+        );
+    } else {
+        // Cache-First para recursos estáticos
+        event.respondWith(
+            caches.match(event.request).then((cachedResponse) => {
+                return cachedResponse || fetch(event.request);
+            })
+        );
+    }
+}); ```
 

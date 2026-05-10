@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Redirigir la raíz a la carpeta root
+RewriteRule ^$ root/ [L]
+
+# Si el archivo o directorio no existe en la raíz, buscar en root
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ root/$1 [L]
