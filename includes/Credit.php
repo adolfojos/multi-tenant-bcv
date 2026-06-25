@@ -81,5 +81,31 @@ class Credit {
             return ["status" => false, "message" => $e->getMessage()];
         }
     }
+    
+    // Obtener historial de créditos filtrado por fecha
+    public function getFilteredHistory($filter = 'all') {
+        $sql = "SELECT c.*, cust.name as customer_name, cust.document, s.created_at as sale_date 
+                FROM credits c
+                JOIN customers cust ON c.customer_id = cust.id
+                JOIN sales s ON c.sale_id = s.id
+                WHERE c.tenant_id = :tid AND c.status != 'cancelled'";
+                
+        // Lógica del filtro de fechas basada en la fecha de la venta
+        if ($filter == 'today') {
+            $sql .= " AND DATE(s.created_at) = CURDATE()";
+        } elseif ($filter == '7days') {
+            $sql .= " AND s.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+        } elseif ($filter == '30days') {
+            $sql .= " AND s.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+        }
+        // Si es 'all', no agregamos filtro de fecha
+        
+        // Ordenamos por estado (pendientes primero) y luego por fecha más reciente
+        $sql .= " ORDER BY c.status DESC, s.created_at DESC";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([':tid' => $this->tenant_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
 ?>

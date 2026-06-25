@@ -28,8 +28,13 @@ try {
 }
 
 // Obtener datos
+
+// Filtro de fecha desde la URL (por defecto "all")
+$filter = $_GET['filter'] ?? 'all'; 
+
+// Obtener datos filtrados
 $creditObj = new Credit($db, $tenant_id);
-$credits = $creditObj->getPending();
+$credits = $creditObj->getFilteredHistory($filter);
 
 $total_deuda_usd = 0;
 foreach($credits as $c) {
@@ -38,6 +43,7 @@ foreach($credits as $c) {
     }
 }
 
+// Opcional: Agregar el selector de filtro en el botón del header
 $headerConfig = [
     'title'  => 'Cuentas por Cobrar',
     'colorico'  => 'danger',

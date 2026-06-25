@@ -42,9 +42,29 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 </li>
                 <li class="nav-header text-uppercase opacity-75 small fw-bold mt-3">Sistema</li>
                 <li class="nav-item">
+                    <a href="settings.php" class="nav-link <?= $currentPage == 'settings.php' ? 'active' : '' ?>">
+                        <i class="nav-icon fas fa-cogs text-primary"></i>
+                        <p>Configuración</p>
+                    </a>
+                
+                <li class="nav-item">
+                    <a href="backup.php" class="nav-link" onclick="setTimeout(() => alert('Descarga iniciada. El archivo SQL se guardará en tu dispositivo.'), 500);">
+                        <i class="nav-icon fas fa-download text-success"></i>
+                        <p>Respaldar BD</p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="restore.php" class="nav-link">
+                        <i class="nav-icon fas fa-upload text-warning"></i>
+                        <p>Restaurar BD</p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
                     <a href="logout.php" class="nav-link">
                         <i class="nav-icon fas fa-sign-out-alt text-danger"></i>
-                        <p class="text-danger">Cerrar Sesión</p>
+                        <p>Cerrar Sesión</p>
                     </a>
                 </li>
             </ul>

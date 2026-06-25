@@ -352,8 +352,13 @@ try {
 }
 
 // Obtener datos
+
+// Filtro de fecha desde la URL (por defecto "all")
+$filter = $_GET['filter'] ?? 'all'; 
+
+// Obtener datos filtrados
 $creditObj = new Credit($db, $tenant_id);
-$credits = $creditObj->getPending();
+$credits = $creditObj->getFilteredHistory($filter);
 
 $total_deuda_usd = 0;
 foreach($credits as $c) {
@@ -362,6 +367,7 @@ foreach($credits as $c) {
     }
 }
 
+// Opcional: Agregar el selector de filtro en el botón del header
 $headerConfig = [
     'title'  => 'Cuentas por Cobrar',
     'colorico'  => 'danger',
@@ -1156,6 +1162,32 @@ class Credit {
             $this->conn->rollBack();
             return ["status" => false, "message" => $e->getMessage()];
         }
+    }
+    
+    // Obtener historial de créditos filtrado por fecha
+    public function getFilteredHistory($filter = 'all') {
+        $sql = "SELECT c.*, cust.name as customer_name, cust.document, s.created_at as sale_date 
+                FROM credits c
+                JOIN customers cust ON c.customer_id = cust.id
+                JOIN sales s ON c.sale_id = s.id
+                WHERE c.tenant_id = :tid AND c.status != 'cancelled'";
+                
+        // Lógica del filtro de fechas basada en la fecha de la venta
+        if ($filter == 'today') {
+            $sql .= " AND DATE(s.created_at) = CURDATE()";
+        } elseif ($filter == '7days') {
+            $sql .= " AND s.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+        } elseif ($filter == '30days') {
+            $sql .= " AND s.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+        }
+        // Si es 'all', no agregamos filtro de fecha
+        
+        // Ordenamos por estado (pendientes primero) y luego por fecha más reciente
+        $sql .= " ORDER BY c.status DESC, s.created_at DESC";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([':tid' => $this->tenant_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 ?> ```
@@ -3756,6 +3788,9 @@ include 'layouts/head.php';
 echo '<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">';
 include 'layouts/navbar.php';
 include 'layouts/sidebar.php'; 
+
+// Capturamos el filtro actual para marcar el botón activo
+$currentFilter = $_GET['filter'] ?? 'all';
 ?>
 <main class="app-main">
     <?= render_content_header($headerConfig) ?>
@@ -3767,7 +3802,7 @@ include 'layouts/sidebar.php';
                     <div class="info-box shadow-sm text-bg-warning h-100">
                         <span class="info-box-icon"><i class="fas fa-file-invoice-dollar text-white"></i></span>
                         <div class="info-box-content text-white">
-                            <span class="info-box-text small fw-bold text-uppercase">Total por Cobrar</span>
+                            <span class="info-box-text small fw-bold text-uppercase">Total por Cobrar (Filtrado)</span>
                             <span class="info-box-number fs-4 mb-0">$<?= number_format($total_deuda_usd, 2) ?></span>
                             <span class="progress-description small">≈ Bs. <?= number_format($total_deuda_usd * $bcvRate, 2) ?></span>
                         </div>
@@ -3776,6 +3811,20 @@ include 'layouts/sidebar.php';
             </div>
 
             <div class="card card-outline card-warning shadow-sm">
+                <div class="card-header border-0 pb-0 pt-3">
+                    <div class="row gy-3 align-items-center">
+                        <div class="col-12">
+                            <div class="btn-group shadow-sm overflow-auto">
+                                <a href="?filter=all" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == 'all' ? 'active' : '' ?>">Todos</a>
+                                <a href="?filter=today" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == 'today' ? 'active' : '' ?>">Hoy</a>
+                                <a href="?filter=7days" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == '7days' ? 'active' : '' ?>">Últimos 7 días</a>
+                                <a href="?filter=30days" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == '30days' ? 'active' : '' ?>">Últimos 30 días</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <hr class="mx-3 mt-3 mb-0">
+
                 <div class="card-body p-3">
                     <div class="table-responsive">
                         <table id="creditsTable" class="table table-hover table-striped align-middle mb-0 w-100">
@@ -3822,6 +3871,10 @@ include 'layouts/sidebar.php';
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-end text-nowrap">
+                                        <a href="ticket.php?id=<?= $c['sale_id'] ?>" target="_blank" class="btn btn-sm btn-outline-secondary me-1" title="Ver Ticket Original">
+                                            <i class="fas fa-receipt"></i>
+                                        </a>
+
                                         <button class="btn btn-sm btn-outline-info me-1" onclick="viewHistory(<?= $c['id'] ?>)" title="Ver Pagos">
                                             <i class="fas fa-list"></i>
                                         </button>
@@ -3841,6 +3894,7 @@ include 'layouts/sidebar.php';
         </div>
     </div>
 </main>
+
 <div class="modal fade" id="modalPayment" tabindex="-1" >
     <div class="modal-dialog modal-dialog-centered">
         <form id="formPayment" class="modal-content shadow">
