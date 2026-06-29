@@ -10,7 +10,7 @@ class Credit {
 
     // Obtener todos los créditos pendientes o con saldo
     public function getPending() {
-        $sql = "SELECT c.*, cust.name as customer_name, cust.document, s.created_at as sale_date 
+        $sql = "SELECT c.*, cust.name as customer_name, cust.document, cust.phone as customer_phone, s.created_at as sale_date
                 FROM credits c
                 JOIN customers cust ON c.customer_id = cust.id
                 JOIN sales s ON c.sale_id = s.id
@@ -84,7 +84,7 @@ class Credit {
     
     // Obtener historial de créditos filtrado por fecha
     public function getFilteredHistory($filter = 'all') {
-        $sql = "SELECT c.*, cust.name as customer_name, cust.document, s.created_at as sale_date 
+        $sql = "SELECT c.*, cust.name as customer_name, cust.document, cust.phone as customer_phone, s.created_at as sale_date 
                 FROM credits c
                 JOIN customers cust ON c.customer_id = cust.id
                 JOIN sales s ON c.sale_id = s.id

@@ -375,6 +375,7 @@ $headerConfig = [
     'tenant' => $tenant_name,
     'bcv'    => $bcvRate
 ];
+
 ?> ```
 
 ## Archivo: ./controllers/CustomerController.php
@@ -958,6 +959,10 @@ $headerConfig = [
 ?>
  ```
 
+## Archivo: ./controllers/WhatsAppController.php
+ ```php
+ ```
+
 ## Archivo: ./includes/Auth.php
  ```php
 <?php
@@ -1092,7 +1097,7 @@ class Credit {
 
     // Obtener todos los créditos pendientes o con saldo
     public function getPending() {
-        $sql = "SELECT c.*, cust.name as customer_name, cust.document, s.created_at as sale_date 
+        $sql = "SELECT c.*, cust.name as customer_name, cust.document, cust.phone as customer_phone, s.created_at as sale_date
                 FROM credits c
                 JOIN customers cust ON c.customer_id = cust.id
                 JOIN sales s ON c.sale_id = s.id
@@ -1166,7 +1171,7 @@ class Credit {
     
     // Obtener historial de créditos filtrado por fecha
     public function getFilteredHistory($filter = 'all') {
-        $sql = "SELECT c.*, cust.name as customer_name, cust.document, s.created_at as sale_date 
+        $sql = "SELECT c.*, cust.name as customer_name, cust.document, cust.phone as customer_phone, s.created_at as sale_date 
                 FROM credits c
                 JOIN customers cust ON c.customer_id = cust.id
                 JOIN sales s ON c.sale_id = s.id
@@ -3387,7 +3392,6 @@ include 'layouts/sidebar.php';
                     </div>
                 </div>
             </div>
-
             <div class="card card-outline card-primary shadow-sm mb-4">
                 <div class="card-body p-3">
                     <div class="table-responsive">
@@ -3882,7 +3886,20 @@ $currentFilter = $_GET['filter'] ?? 'all';
                                         <button class="btn btn-sm btn-outline-success" onclick="openPaymentModal(<?= $c['id'] ?>, <?= $c['balance_usd'] ?>, '<?= htmlspecialchars(addslashes($c['customer_name'])) ?>')" title="Registrar Abono">
                                             <i class="fas fa-hand-holding-usd"></i> Abonar
                                         </button>
+                                        <?php if(!empty($c['customer_phone'])): ?>
+                                            <button class="btn btn-sm btn-success text-white ms-1" onclick="enviarRecordatorioWhatsApp('<?= htmlspecialchars($c['customer_phone']) ?>', '<?= htmlspecialchars(addslashes($c['customer_name'])) ?>', <?= $c['balance_usd'] ?>, <?= $bcvRate ?>)" title="Enviar Recordatorio por WhatsApp">
+                                                <i class="fab fa-whatsapp"></i>
+                                            </button>
+                                        <?php else: ?>
+                                            <button class="btn btn-sm btn-secondary ms-1" disabled title="Cliente sin teléfono registrado">
+                                                <i class="fab fa-whatsapp"></i>
+                                            </button>
                                         <?php endif; ?>
+
+                                        <?php endif; ?>
+
+
+                                        
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -3977,6 +3994,7 @@ $currentFilter = $_GET['filter'] ?? 'all';
 <script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
 <script>
     window.APP_BCVRATE = <?= $bcvRate ?>;
+    window.APP_TENANT_NAME = '<?= htmlspecialchars(addslashes($tenant_name)) ?>';
 </script>
 <script src="js/credits.js"></script>
 </body>
@@ -20209,7 +20227,7 @@ $(document).ready(function () {
         lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Todos"]],
         order: [[0, "asc"]],
         columnDefs: [{ orderable: false, targets: 10 }],
-        dom: '<"row mb-3"<"col-md-6"l><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>'
+        dom: '<"row mb-3"<"col-md-6"l><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
     });
 });
 
@@ -21710,86 +21728,123 @@ function confirmAction(task, actionType) {
 
 ## Archivo: ./public/js/credits.js
  ```javascript
-     const chartDates = window.APP_BCVRATE;
+const bcvRate = window.APP_BCVRATE;
 
-    $(document).ready(function() {
-        $('#creditsTable').DataTable({
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
-            order: [[4, 'desc']]
-        });
-
-        // Calculadora en vivo en el modal
-        $('#pay_amount').on('input', function() {
-            let usd = parseFloat($(this).val()) || 0;
-            $('#pay_bs_conversion').text(`Equivale a: Bs ${(usd * bcvRate).toFixed(2)}`);
-        });
-
-        // Enviar pago por AJAX
-        $('#formPayment').on('submit', function(e) {
-            e.preventDefault();
-            $('#btnSubmitPayment').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
-
-            $.ajax({
-                url: 'actions/actions_credit.php',
-                type: 'POST',
-                data: $(this).serialize(),
-                dataType: 'json',
-                success: function(res) {
-                    if(res.status) {
-                        Swal.fire('¡Éxito!', res.message, 'success').then(() => location.reload());
-                    } else {
-                        Swal.fire('Error', res.message, 'error');
-                        $('#btnSubmitPayment').prop('disabled', false).text('Confirmar Pago');
-                    }
-                },
-                error: function() {
-                    Swal.fire('Error', 'No se pudo comunicar con el servidor.', 'error');
-                    $('#btnSubmitPayment').prop('disabled', false).text('Confirmar Pago');
-                }
-            });
-        });
+$(document).ready(function() {
+    $('#creditsTable').DataTable({
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+        order: [[4, 'desc']]
     });
 
-    function openPaymentModal(id, maxAmount, customer) {
-        $('#pay_credit_id').val(id);
-        $('#pay_customer_name').text(customer);
-        $('#pay_balance_display').text('$' + parseFloat(maxAmount).toFixed(2));
-        $('#pay_amount').attr('max', maxAmount).val('');
-        $('#pay_bs_conversion').text('Equivale a: Bs 0.00');
-        
-        let modal = new bootstrap.Modal(document.getElementById('modalPayment'));
-        modal.show();
-    }
+    // Calculadora en vivo en el modal
+    $('#pay_amount').on('input', function() {
+        let usd = parseFloat($(this).val()) || 0;
+        $('#pay_bs_conversion').text(`Equivale a: Bs ${(usd * bcvRate).toFixed(2)}`);
+    });
 
-    function viewHistory(credit_id) {
-        $('#historyTableBody').html('<tr><td colspan="5"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
-        let modal = new bootstrap.Modal(document.getElementById('modalHistory'));
-        modal.show();
+    // Enviar pago por AJAX
+    $('#formPayment').on('submit', function(e) {
+        e.preventDefault();
+        $('#btnSubmitPayment').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
 
         $.ajax({
             url: 'actions/actions_credit.php',
             type: 'POST',
-            data: { action: 'get_history', credit_id: credit_id },
+            data: $(this).serialize(),
             dataType: 'json',
             success: function(res) {
-                if(res.status && res.data.length > 0) {
-                    let html = '';
-                    res.data.forEach(p => {
-                        html += `<tr>
-                            <td>${new Date(p.created_at).toLocaleString('es-VE')}</td>
-                            <td class="text-success fw-bold">$${parseFloat(p.amount_usd).toFixed(2)}</td>
-                            <td>Bs ${parseFloat(p.amount_bs).toFixed(2)}</td>
-                            <td class="text-capitalize">${p.payment_method.replace('_', ' ')}</td>
-                            <td><span class="badge bg-secondary">${p.username || 'N/A'}</span></td>
-                        </tr>`;
-                    });
-                    $('#historyTableBody').html(html);
+                if(res.status) {
+                    Swal.fire('¡Éxito!', res.message, 'success').then(() => location.reload());
                 } else {
-                    $('#historyTableBody').html('<tr><td colspan="5" class="text-muted">No hay pagos registrados.</td></tr>');
+                    Swal.fire('Error', res.message, 'error');
+                    $('#btnSubmitPayment').prop('disabled', false).text('Confirmar Pago');
                 }
+            },
+            error: function() {
+                Swal.fire('Error', 'No se pudo comunicar con el servidor.', 'error');
+                $('#btnSubmitPayment').prop('disabled', false).text('Confirmar Pago');
             }
         });
-    } ```
+    });
+});
+
+function openPaymentModal(id, maxAmount, customer) {
+    $('#pay_credit_id').val(id);
+    $('#pay_customer_name').text(customer);
+    $('#pay_balance_display').text('$' + parseFloat(maxAmount).toFixed(2));
+    $('#pay_amount').attr('max', maxAmount).val('');
+    $('#pay_bs_conversion').text('Equivale a: Bs 0.00');
+    
+    let modal = new bootstrap.Modal(document.getElementById('modalPayment'));
+    modal.show();
+}
+
+function viewHistory(credit_id) {
+    $('#historyTableBody').html('<tr><td colspan="5"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
+    let modal = new bootstrap.Modal(document.getElementById('modalHistory'));
+    modal.show();
+
+    $.ajax({
+        url: 'actions/actions_credit.php',
+        type: 'POST',
+        data: { action: 'get_history', credit_id: credit_id },
+        dataType: 'json',
+        success: function(res) {
+            if(res.status && res.data.length > 0) {
+                let html = '';
+                res.data.forEach(p => {
+                    html += `<tr>
+                        <td>${new Date(p.created_at).toLocaleString('es-VE')}</td>
+                        <td class="text-success fw-bold">$${parseFloat(p.amount_usd).toFixed(2)}</td>
+                        <td>Bs ${parseFloat(p.amount_bs).toFixed(2)}</td>
+                        <td class="text-capitalize">${p.payment_method.replace('_', ' ')}</td>
+                        <td><span class="badge bg-secondary">${p.username || 'N/A'}</span></td>
+                    </tr>`;
+                });
+                $('#historyTableBody').html(html);
+            } else {
+                $('#historyTableBody').html('<tr><td colspan="5" class="text-muted">No hay pagos registrados.</td></tr>');
+            }
+        }
+    });
+}
+window.enviarRecordatorioWhatsApp = function(phone, customerName, balanceUsd, currentBcv) {
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) {
+        cleanPhone = '58' + cleanPhone.substring(1);
+    } else if (cleanPhone.length === 10 && ['414', '424', '412', '416', '426'].some(prefix => cleanPhone.startsWith(prefix))) {
+        cleanPhone = '58' + cleanPhone;
+    }
+
+    let usd = parseFloat(balanceUsd);
+    let bcv = parseFloat(currentBcv);
+    let bs = usd * bcv;
+    let tenant = window.APP_TENANT_NAME || 'nuestro negocio';
+
+    let mensaje = `Hola *${customerName}*, un gusto saludarte. 🌟\n`;
+    mensaje += `Te escribimos de *${tenant}* para recordarte amablemente que mantienes un saldo pendiente en tu cuenta de:\n`;
+    mensaje += `💵 *$${usd.toFixed(2)} USD*\n`;
+    mensaje += `🇻🇪 *Bs. ${bs.toFixed(2)}* _(Calculado a la tasa BCV del día: Bs. ${bcv.toFixed(2)})_\n`;
+    mensaje += `Puedes realizar tu pago móvil a los siguientes datos:\n`;
+    mensaje += `📱 04161607891 | C.I. 19551521 | Banco: 0102\n`;
+    mensaje += `Quedamos atentos a tu confirmación de pago. ¡Feliz día! 👍`;
+
+    let mensajeCodificado = encodeURIComponent(mensaje);
+    let webUrl = `https://wa.me/${cleanPhone}?text=${mensajeCodificado}`;
+    let appUrl = `whatsapp://send?phone=${cleanPhone}&text=${mensajeCodificado}`;
+
+    // 1. Intentamos abrir la App de escritorio
+    window.location.href = appUrl;
+
+    // 2. Usamos un temporizador para detectar si la App no se abrió
+    // Si después de 2 segundos (2000ms) el navegador sigue "vivo", abrimos la versión web
+    setTimeout(function() {
+        // Verificamos si el foco sigue en el navegador
+        if (!document.hidden) {
+            window.open(webUrl, '_blank');
+        }
+    }, 2000);
+}; ```
 
 ## Archivo: ./public/js/customers.js
  ```javascript
@@ -25199,6 +25254,92 @@ try {
 }
  ```
 
+## Archivo: ./root/backup.php
+ ```php
+<?php
+// Archivo: ./root/backup.php
+session_start();
+require_once '../config/db.php';
+
+// Seguridad: Solo el SuperAdmin puede descargar la base de datos completa
+if (!isset($_SESSION['is_superadmin'])) {
+    header("Location: login.php");
+    exit;
+}
+
+$database = new Database();
+$pdo = $database->getConnection();
+
+// Desactivar límites de tiempo y memoria para bases de datos grandes
+ini_set('memory_limit', '-1');
+set_time_limit(0);
+
+// 1. Obtener todas las tablas
+$tables = [];
+$query = $pdo->query("SHOW TABLES");
+while ($row = $query->fetch(PDO::FETCH_NUM)) {
+    $tables[] = $row[0];
+}
+
+// 2. Cabecera del archivo SQL
+$sql = "-- Respaldo de Base de Datos MultiPOS\n";
+$sql .= "-- Generado el: " . date('Y-m-d H:i:s') . "\n\n";
+$sql .= "SET FOREIGN_KEY_CHECKS=0;\n\n";
+
+// 3. Recorrer cada tabla para obtener su estructura y datos
+foreach ($tables as $table) {
+    $sql .= "-- Estructura y datos para la tabla `$table`\n";
+    $sql .= "DROP TABLE IF EXISTS `$table`;\n";
+    
+    // Obtener la estructura (CREATE TABLE)
+    $row2 = $pdo->query("SHOW CREATE TABLE `$table`")->fetch(PDO::FETCH_NUM);
+    $sql .= $row2[1] . ";\n\n";
+
+    // Obtener los datos
+    $query = $pdo->query("SELECT * FROM `$table`");
+    $num_rows = $query->rowCount();
+    $num_fields = $query->columnCount();
+
+    if ($num_rows > 0) {
+        $sql .= "INSERT INTO `$table` VALUES \n";
+        $rowCounter = 0;
+        
+        while ($row = $query->fetch(PDO::FETCH_NUM)) {
+            $sql .= "(";
+            for ($j = 0; $j < $num_fields; $j++) {
+                $val = $row[$j];
+                if (is_null($val)) {
+                    $sql .= "NULL";
+                } else {
+                    // PDO::quote() escapa las comillas y caracteres especiales de forma segura
+                    $sql .= $pdo->quote($val);
+                }
+                
+                if ($j < ($num_fields - 1)) {
+                    $sql .= ',';
+                }
+            }
+            $rowCounter++;
+            $sql .= ($rowCounter < $num_rows) ? "),\n" : ");\n\n";
+        }
+    }
+}
+
+$sql .= "SET FOREIGN_KEY_CHECKS=1;\n";
+
+// 4. Configurar las cabeceras HTTP para forzar la descarga del archivo
+$filename = 'backup_multipos_' . date('Y-m-d_H-i-s') . '.sql';
+
+header('Content-Type: application/sql');
+header('Content-Disposition: attachment; filename="' . $filename . '"');
+header('Pragma: no-cache');
+header('Expires: 0');
+
+// Imprimir el contenido y salir
+echo $sql;
+exit;
+?> ```
+
 ## Archivo: ./root/css/custom.css
  ```css
 /* ==========================================================================
@@ -26389,9 +26530,29 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 </li>
                 <li class="nav-header text-uppercase opacity-75 small fw-bold mt-3">Sistema</li>
                 <li class="nav-item">
+                    <a href="settings.php" class="nav-link <?= $currentPage == 'settings.php' ? 'active' : '' ?>">
+                        <i class="nav-icon fas fa-cogs text-primary"></i>
+                        <p>Configuración</p>
+                    </a>
+                
+                <li class="nav-item">
+                    <a href="backup.php" class="nav-link" onclick="setTimeout(() => alert('Descarga iniciada. El archivo SQL se guardará en tu dispositivo.'), 500);">
+                        <i class="nav-icon fas fa-download text-success"></i>
+                        <p>Respaldar BD</p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="restore.php" class="nav-link">
+                        <i class="nav-icon fas fa-upload text-warning"></i>
+                        <p>Restaurar BD</p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
                     <a href="logout.php" class="nav-link">
                         <i class="nav-icon fas fa-sign-out-alt text-danger"></i>
-                        <p class="text-danger">Cerrar Sesión</p>
+                        <p>Cerrar Sesión</p>
                     </a>
                 </li>
             </ul>
@@ -27077,6 +27238,185 @@ if (!$payment) {
 
 </body>
 </html> ```
+
+## Archivo: ./root/restore.php
+ ```php
+<?php
+// Archivo: ./root/restore.php
+session_start();
+require_once '../config/db.php';
+
+// Seguridad: Solo el SuperAdmin puede acceder
+if (!isset($_SESSION['is_superadmin'])) {
+    header("Location: login.php");
+    exit;
+}
+
+$message = '';
+$status = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
+    $file = $_FILES['backup_file'];
+    
+    if ($file['error'] === UPLOAD_ERR_OK) {
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        
+        // Validar que realmente sea un archivo SQL
+        if (strtolower($ext) !== 'sql') {
+            $message = "Error: Solo se permiten archivos con extensión .sql";
+            $status = "danger";
+        } else {
+            try {
+                $database = new Database();
+                $pdo = $database->getConnection();
+                
+                // Evitar límites de tiempo y memoria
+                ini_set('memory_limit', '-1');
+                set_time_limit(0);
+                
+                // Desactivar temporalmente la verificación de llaves foráneas
+                $pdo->exec("SET FOREIGN_KEY_CHECKS=0;");
+                
+                // Abrir el archivo temporal para lectura línea por línea
+                $handle = fopen($file['tmp_name'], "r");
+                $templine = '';
+                
+                if ($handle) {
+                    while (($line = fgets($handle)) !== false) {
+                        // Saltar comentarios de SQL y líneas vacías
+                        if (substr(trim($line), 0, 2) == '--' || trim($line) == '' || substr(trim($line), 0, 2) == '/*') {
+                            continue;
+                        }
+                        
+                        $templine .= $line;
+                        
+                        // Si encontramos un punto y coma al final, ejecutamos la sentencia
+                        if (substr(trim($line), -1, 1) == ';') {
+                            $pdo->exec($templine);
+                            $templine = ''; // Limpiar variable para la siguiente consulta
+                        }
+                    }
+                    fclose($handle);
+                    
+                    // Reactivar la verificación de llaves foráneas
+                    $pdo->exec("SET FOREIGN_KEY_CHECKS=1;");
+                    
+                    $message = "¡Base de datos restaurada con éxito desde el archivo: <strong>" . htmlspecialchars($file['name']) . "</strong>!";
+                    $status = "success";
+                } else {
+                    $message = "Error: No se pudo abrir el archivo temporal.";
+                    $status = "danger";
+                }
+            } catch (PDOException $e) {
+                $message = "Error durante la restauración: " . $e->getMessage();
+                $status = "danger";
+            }
+        }
+    } else {
+        $message = "Error al subir el archivo. Código de error: " . $file['error'];
+        $status = "danger";
+    }
+}
+
+// Incluir vistas de la interfaz
+include 'layouts/head.php';
+include 'layouts/sidebar.php';
+?>
+
+<div class="content-wrapper">
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1>Mantenimiento del Sistema</h1>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="content">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-8 mx-auto">
+                    
+                    <?php if (!empty($message)): ?>
+                        <div class="alert alert-<?php echo $status; ?> alert-dismissible fade show" role="alert">
+                            <h5><i class="icon fas <?php echo ($status == 'success') ? 'fa-check' : 'fa-ban'; ?>"></i> Notificación</h5>
+                            <?php echo $message; ?>
+                            <button type="text" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="card card-warning card-outline">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fas fa-exclamation-triangle text-warning"></i> ¡Atención! Zona Crítica</h3>
+                        </div>
+                        <div class="card-body">
+                            <p>La restauración de la base de datos es un proceso **irreversible**. Al subir un archivo de respaldo:</p>
+                            <ul>
+                                <li>Se eliminarán todas las tablas y datos actuales de la aplicación.</li>
+                                <li>Se sobrescribirá la información de todos los inquilinos (tenants).</li>
+                                <li>Se recomienda encarecidamente realizar un **respaldo previo** de la base de datos actual antes de continuar.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card card-primary">
+                        <div class="card-header">
+                            <h3 class="card-title">Importar Respaldo (.sql)</h3>
+                        </div>
+                        <form action="restore.php" method="POST" enctype="multipart/form-data" onsubmit="return confirmarRestauracion();">
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="backup_file">Selecciona el archivo de respaldo</label>
+                                    <div class="input-group">
+                                        <div class="custom-file">
+                                            <input type="file" class="custom-file-input" id="backup_file" name="backup_file" accept=".sql" required>
+                                            <label class="custom-file-label" for="backup_file">Buscar archivo .sql...</label>
+                                        </div>
+                                    </div>
+                                    <small class="form-text text-muted">Asegúrate de que el archivo no esté corrupto y provenga de una fuente confiable.</small>
+                                </div>
+                            </div>
+                            <div class="card-footer d-flex justify-content-between">
+                                <a href="backup.php" class="btn btn-secondary">Generar Respaldo Primero</a>
+                                <button type="submit" class="btn btn-dangerml-auto">Iniciar Restauración</button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+// JavaScript para mostrar el nombre del archivo seleccionado en el input de Bootstrap
+document.addEventListener('DOMContentLoaded', function () {
+    const fileInput = document.getElementById('backup_file');
+    if(fileInput) {
+        fileInput.addEventListener('change', function (e) {
+            const fileName = e.target.files[0].name;
+            const nextSibling = e.target.nextElementSibling;
+            nextSibling.innerText = fileName;
+        });
+    }
+});
+
+// Doble confirmación nativa antes de procesar el formulario destructivo
+function confirmarRestauracion() {
+    const primeraConfirmacion = confirm("¿Estás absolutamente seguro de que deseas restaurar la base de datos? Esto borrará TODOS los datos actuales del sistema.");
+    if (primeraConfirmacion) {
+        return confirm("¡ÚLTIMO AVISO!\nEsta acción no se puede deshacer. ¿Deseas proceder con la importación?");
+    }
+    return false;
+}
+</script>
+
+<?php include 'layouts/footer.php'; ?> ```
 
 ## Archivo: ./sw.js
  ```javascript

@@ -98,7 +98,20 @@ $currentFilter = $_GET['filter'] ?? 'all';
                                         <button class="btn btn-sm btn-outline-success" onclick="openPaymentModal(<?= $c['id'] ?>, <?= $c['balance_usd'] ?>, '<?= htmlspecialchars(addslashes($c['customer_name'])) ?>')" title="Registrar Abono">
                                             <i class="fas fa-hand-holding-usd"></i> Abonar
                                         </button>
+                                        <?php if(!empty($c['customer_phone'])): ?>
+                                            <button class="btn btn-sm btn-success text-white ms-1" onclick="enviarRecordatorioWhatsApp('<?= htmlspecialchars($c['customer_phone']) ?>', '<?= htmlspecialchars(addslashes($c['customer_name'])) ?>', <?= $c['balance_usd'] ?>, <?= $bcvRate ?>)" title="Enviar Recordatorio por WhatsApp">
+                                                <i class="fab fa-whatsapp"></i>
+                                            </button>
+                                        <?php else: ?>
+                                            <button class="btn btn-sm btn-secondary ms-1" disabled title="Cliente sin teléfono registrado">
+                                                <i class="fab fa-whatsapp"></i>
+                                            </button>
                                         <?php endif; ?>
+
+                                        <?php endif; ?>
+
+
+                                        
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -193,6 +206,7 @@ $currentFilter = $_GET['filter'] ?? 'all';
 <script src="assets/vendor/sweetalert2/sweetalert2.js"></script>
 <script>
     window.APP_BCVRATE = <?= $bcvRate ?>;
+    window.APP_TENANT_NAME = '<?= htmlspecialchars(addslashes($tenant_name)) ?>';
 </script>
 <script src="js/credits.js"></script>
 </body>

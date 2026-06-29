@@ -43,7 +43,7 @@ $(document).ready(function () {
         lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Todos"]],
         order: [[0, "asc"]],
         columnDefs: [{ orderable: false, targets: 10 }],
-        dom: '<"row mb-3"<"col-md-6"l><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>'
+        dom: '<"row mb-3"<"col-md-6"l><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
     });
 });
 

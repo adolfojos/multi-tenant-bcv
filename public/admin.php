@@ -45,7 +45,6 @@ include 'layouts/sidebar.php';
                     </div>
                 </div>
             </div>
-
             <div class="card card-outline card-primary shadow-sm mb-4">
                 <div class="card-body p-3">
                     <div class="table-responsive">
