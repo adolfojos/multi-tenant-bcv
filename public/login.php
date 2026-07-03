@@ -14,7 +14,7 @@ require_once '../controllers/AuthController.php';
   <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
   <meta name="title" content="Iniciar Sesión - Sistema POS" />
-  <meta name="author" content="ColorlibHQ" />
+  <meta name="author" content="adolfojos" />
   <meta name="keywords" content="adminlte, pos, login" />
   <link rel="preload" href="css/adminlte.css" as="style" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" crossorigin="anonymous" />

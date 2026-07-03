@@ -1169,7 +1169,7 @@ class Credit {
         }
     }
     
-    // Obtener historial de créditos filtrado por fecha
+    // Obtener historial de créditos filtrado por fecha o estado
     public function getFilteredHistory($filter = 'all') {
         $sql = "SELECT c.*, cust.name as customer_name, cust.document, cust.phone as customer_phone, s.created_at as sale_date 
                 FROM credits c
@@ -1177,15 +1177,19 @@ class Credit {
                 JOIN sales s ON c.sale_id = s.id
                 WHERE c.tenant_id = :tid AND c.status != 'cancelled'";
                 
-        // Lógica del filtro de fechas basada en la fecha de la venta
+        // Lógica del filtro de fechas y estados
         if ($filter == 'today') {
             $sql .= " AND DATE(s.created_at) = CURDATE()";
         } elseif ($filter == '7days') {
             $sql .= " AND s.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
         } elseif ($filter == '30days') {
             $sql .= " AND s.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+        } elseif ($filter == 'pending') {
+            $sql .= " AND c.status = 'pending'";
+        } elseif ($filter == 'paid') {
+            $sql .= " AND c.status = 'paid'";
         }
-        // Si es 'all', no agregamos filtro de fecha
+        // Si es 'all', no agregamos filtro de fecha ni de estado
         
         // Ordenamos por estado (pendientes primero) y luego por fecha más reciente
         $sql .= " ORDER BY c.status DESC, s.created_at DESC";
@@ -3823,6 +3827,8 @@ $currentFilter = $_GET['filter'] ?? 'all';
                                 <a href="?filter=today" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == 'today' ? 'active' : '' ?>">Hoy</a>
                                 <a href="?filter=7days" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == '7days' ? 'active' : '' ?>">Últimos 7 días</a>
                                 <a href="?filter=30days" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == '30days' ? 'active' : '' ?>">Últimos 30 días</a>
+                                <a href="?filter=pending" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == 'pending' ? 'active' : '' ?>">Pendientes</a>
+                                <a href="?filter=paid" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == 'paid' ? 'active' : '' ?>">Pagados</a>
                             </div>
                         </div>
                     </div>
@@ -24059,7 +24065,7 @@ require_once '../controllers/AuthController.php';
   <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
   <meta name="title" content="Iniciar Sesión - Sistema POS" />
-  <meta name="author" content="ColorlibHQ" />
+  <meta name="author" content="adolfojos" />
   <meta name="keywords" content="adminlte, pos, login" />
   <link rel="preload" href="css/adminlte.css" as="style" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" crossorigin="anonymous" />

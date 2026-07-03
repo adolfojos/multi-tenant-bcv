@@ -21,89 +21,175 @@ if (!$sale) {
 ?>
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <title>Ticket #<?= $sale['id'] ?></title>
     <style>
-        body { font-family: 'Courier New', monospace; font-size: 12px; width: 300px; margin: 0 auto; color: #000; }
-        .text-center { text-align: center; }
-        .text-end { text-align: right; }
-        .border-bottom { border-bottom: 1px dashed #000; margin: 5px 0; }
-        table { width: 100%; }
-        .btn-print { display: block; width: 100%; padding: 10px; background: #000; color: #fff; text-decoration: none; text-align: center; margin-bottom: 10px; }
-        @media print { .btn-print { display: none; } }
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            width: 300px;
+            margin: 0 auto;
+            color: #000;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-end {
+            text-align: right;
+        }
+
+        .border-bottom {
+            border-bottom: 1px dashed #000;
+            margin: 5px 0;
+        }
+
+        table {
+            width: 100%;
+        }
+
+        .btn-print {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: #000;
+            color: #fff;
+            text-decoration: none;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        @media print {
+            .btn-print {
+                display: none;
+            }
+        }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
+
 <body>
 
-<a href="#" onclick="window.print()" class="btn-print">🖨️ IMPRIMIR</a>
-
-<div class="text-center">
-    <h3 style="margin-bottom: 5px;"><?= strtoupper($sale['business_name']) ?></h3>
-    <span>RIF: <?= $sale['rif'] ?></span><br>
-    <span>Fecha: <?= date('d/m/Y h:i A', strtotime($sale['created_at'])) ?></span><br>
-    <span>Ticket #: <?= str_pad($sale['id'], 6, "0", STR_PAD_LEFT) ?></span>
-    <span>Dólar BCV: <?= $sale['exchange_rate'] ?></span><br>
-</div>
-<div class="text-center">
-    <?php if (isset($sale['status']) && $sale['status'] === 'anulada'): ?>
-        <div style="border: 2px solid #000; padding: 5px; margin-top: 5px; font-weight: bold; font-size: 16px;">
-            *** VENTA ANULADA ***
+    <a href="#" onclick="window.print()" class="btn-print">🖨️ IMPRIMIR</a>
+    <a href="javascript:void(0)" onclick="compartirTicket()" class="btn-print">📤 COMPARTIR</a>
+    <div id="ticket-container">
+        <div class="text-center">
+            <h3 style="margin-bottom: 5px;"><?= strtoupper($sale['business_name']) ?></h3>
+            <span>RIF: <?= $sale['rif'] ?></span><br>
+            <span>Fecha: <?= date('d/m/Y h:i A', strtotime($sale['created_at'])) ?></span><br>
+            <span>Ticket #: <?= str_pad($sale['id'], 6, "0", STR_PAD_LEFT) ?></span>
+            <span>Dólar BCV: <?= $sale['exchange_rate'] ?></span><br>
         </div>
-    <?php endif; ?>
-</div>
-<div class="border-bottom"></div>
-<div class="text-center">
-    <?php if (isset($sale['status']) && $sale['status'] === 'anulada'): ?>
-        <div style="border: 2px solid #000; padding: 5px; margin-top: 5px; font-weight: bold; font-size: 16px;">
-            *** VENTA ANULADA ***
+        <div class="text-center">
+            <?php if (isset($sale['status']) && $sale['status'] === 'anulada'): ?>
+                <div style="border: 2px solid #000; padding: 5px; margin-top: 5px; font-weight: bold; font-size: 16px;">
+                    *** VENTA ANULADA ***
+                </div>
+            <?php endif; ?>
         </div>
-    <?php endif; ?>
+        <div class="border-bottom"></div>
+        <div class="text-center">
+            <?php if (isset($sale['status']) && $sale['status'] === 'anulada'): ?>
+                <div style="border: 2px solid #000; padding: 5px; margin-top: 5px; font-weight: bold; font-size: 16px;">
+                    *** VENTA ANULADA ***
+                </div>
+            <?php endif; ?>
 
-    <?php if ($sale['payment_method'] === 'credito'): ?>
-        <div style="border: 1px dashed #000; padding: 5px; margin-top: 5px;">
-            <strong>VENTA A CRÉDITO</strong><br>
-            Cliente: <?= htmlspecialchars($sale['customer_name'] ?? 'N/A') ?><br>
-            C.I/RIF: <?= htmlspecialchars($sale['customer_doc'] ?? 'N/A') ?>
+            <?php if ($sale['payment_method'] === 'credito'): ?>
+                <div style="border: 1px dashed #000; padding: 5px; margin-top: 5px;">
+                    <strong>VENTA A CRÉDITO</strong><br>
+                    Cliente: <?= htmlspecialchars($sale['customer_name'] ?? 'N/A') ?><br>
+                    C.I/RIF: <?= htmlspecialchars($sale['customer_doc'] ?? 'N/A') ?>
+                </div>
+            <?php endif; ?>
         </div>
-    <?php endif; ?>
-</div>
-<table>
-    <thead>
-        <tr>
-            <th style="text-align:left">Cant</th>
-            <th style="text-align:left">Desc</th>
-            <th style="text-align:right">Total</th>
-        </tr>
-    </thead>
-    <tbody>
-        <?php foreach($items as $item): ?>
-        <tr>
-            <td><?= $item['quantity'] ?></td>
-            <td><?= substr($item['product_name'], 0, 30) ?></td>
-            <td class="text-end">$<?= number_format($item['quantity'] * $item['price_at_moment_usd'], 2) ?></td>
-        </tr>
-        <?php endforeach; ?>
-    </tbody>
-</table>
+        <table>
+            <thead>
+                <tr>
+                    <th style="text-align:left">Cant</th>
+                    <th style="text-align:left">Desc</th>
+                    <th style="text-align:right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($items as $item): ?>
+                    <tr>
+                        <td><?= $item['quantity'] ?></td>
+                        <td><?= substr($item['product_name'], 0, 30) ?></td>
+                        <td class="text-end">$<?= number_format($item['quantity'] * $item['price_at_moment_usd'], 2) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
 
-<div class="border-bottom"></div>
+        <div class="border-bottom"></div>
 
-<div class="text-end">
-    <strong>TOTAL USD: $<?= number_format($sale['total_amount_usd'], 2) ?></strong><br>
-    <strong>TOTAL BS: Bs <?= number_format($sale['total_amount_bs'], 2) ?></strong>
-</div>
+        <div class="text-end">
+            <strong>TOTAL USD: $<?= number_format($sale['total_amount_usd'], 2) ?></strong><br>
+            <strong>TOTAL BS: Bs <?= number_format($sale['total_amount_bs'], 2) ?></strong>
+        </div>
 
-<div class="border-bottom"></div>
+        <div class="border-bottom"></div>
 
-<div class="text-center">
-    <small>Cajero: <?= $sale['username'] ?></small><br>
-    <small><?= $sale['ticket_footer'] ?></small>
-</div>
+        <div class="text-center">
+            <small>Cajero: <?= $sale['username'] ?></small><br>
+            <small><?= $sale['ticket_footer'] ?></small>
+        </div>
+    </div> <!-- End of ticket-container -->
+    <script>
+        async function compartirTicket() {
+            // 1. Seleccionamos el contenedor del ticket
+            const ticketElement = document.getElementById('ticket-container');
 
-<script>
-    // window.onload = function() { window.print(); } // Opcional: imprimir automático
-</script>
+            try {
+                // 2. Usamos html2canvas para renderizar el HTML como imagen
+                // scale: 2 mejora la resolución de la imagen generada
+                const canvas = await html2canvas(ticketElement, {
+                    scale: 2,
+                    useCORS: true
+                });
+
+                // 3. Convertimos el canvas a un archivo tipo Blob
+                canvas.toBlob(async function(blob) {
+                    // Creamos un archivo de imagen
+                    const file = new File([blob], "ticket_compra.png", {
+                        type: "image/png"
+                    });
+
+                    // 4. Verificamos si el navegador soporta compartir archivos nativamente
+                    if (navigator.share && navigator.canShare && navigator.canShare({
+                            files: [file]
+                        })) {
+                        try {
+                            await navigator.share({
+                                title: 'Ticket de Compra',
+                                text: '¡Gracias por su compra! Adjunto su ticket.',
+                                files: [file]
+                            });
+                            console.log('Ticket compartido exitosamente.');
+                        } catch (error) {
+                            console.log('Error al compartir o acción cancelada por el usuario', error);
+                        }
+                    } else {
+                        // FALLBACK: Si el navegador no soporta compartir (ej. PC de escritorio),
+                        // descargamos la imagen automáticamente en su lugar.
+                        const link = document.createElement('a');
+                        link.download = 'ticket_compra.png';
+                        link.href = canvas.toDataURL("image/png");
+                        link.click();
+                        alert('La imagen ha sido descargada porque su navegador no soporta la función de compartir directamente.');
+                    }
+                });
+            } catch (error) {
+                console.error("Error generando la imagen del ticket:", error);
+                alert("Hubo un problema al generar la imagen del ticket.");
+            }
+        }
+    </script>
 
 </body>
+
 </html>

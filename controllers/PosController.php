@@ -23,16 +23,21 @@ $rateObj = new ExchangeRate($db);
 $bcvRate = $rateObj->getSystemRate();
 
 // --- PAGINACIÓN ---
-$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 8;
+$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 18;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-// Query Principal
-$sql = "SELECT p.*, c.name as category_name 
+/// --- QUERY PRINCIPAL MODIFICADO (ORDENADO POR MÁS VENDIDOS) ---
+$sql = "SELECT p.*, c.name as category_name,
+               (SELECT COALESCE(SUM(sd.quantity), 0) 
+                FROM sale_items sd 
+                WHERE sd.product_id = p.id) as total_vendido
         FROM products p 
         LEFT JOIN categories c ON p.category_id = c.id 
         WHERE p.tenant_id = :tid 
-        ORDER BY p.id DESC LIMIT :offset, :limit";
+        ORDER BY total_vendido DESC, p.id DESC 
+        LIMIT :offset, :limit";
+
 $stmt = $db->prepare($sql);
 $stmt->bindValue(':tid', $tenant_id, PDO::PARAM_INT);
 $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);

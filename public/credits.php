@@ -35,6 +35,8 @@ $currentFilter = $_GET['filter'] ?? 'all';
                                 <a href="?filter=today" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == 'today' ? 'active' : '' ?>">Hoy</a>
                                 <a href="?filter=7days" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == '7days' ? 'active' : '' ?>">Últimos 7 días</a>
                                 <a href="?filter=30days" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == '30days' ? 'active' : '' ?>">Últimos 30 días</a>
+                                <a href="?filter=pending" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == 'pending' ? 'active' : '' ?>">Pendientes</a>
+                                <a href="?filter=paid" class="btn btn-sm btn-outline-warning text-dark fw-medium <?= $currentFilter == 'paid' ? 'active' : '' ?>">Pagados</a>
                             </div>
                         </div>
                     </div>

@@ -31,48 +31,48 @@ include 'layouts/sidebar.php';
                             $categoria = !empty($p['category']) ? htmlspecialchars($p['category']) : 'N/A';
                             $brand = !empty($p['brand']) ? htmlspecialchars($p['brand']) : 'N/A';
                         ?>
-                            <div class="col-6 col-md-4 col-xl-3 product-item"
-                                data-name="<?= htmlspecialchars(strtolower($p['name'])) ?>"
-                                data-desc="<?= htmlspecialchars(strtolower($desc)) ?>"
-                                data-sku="<?= htmlspecialchars(strtolower($sku)) ?>"
-                                data-category="<?= htmlspecialchars(strtolower($categoria)) ?>"
-                                data-brand="<?= htmlspecialchars(strtolower($brand)) ?>"
-                                data-price="<?= $price_usd ?>">
-                                <div class="card h-100 shadow-sm border" style="cursor: pointer; transition: transform 0.2s;">
-                                    <div onclick='addToCart(<?= $p['id'] ?>, <?= json_encode($p['name']) ?>, <?= $price_usd ?>, <?= $p['stock'] ?>)' class="d-flex flex-column h-100">
-                                        <div class="text-center bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center" style="height: 120px; border-bottom: 1px solid rgba(0,0,0,0.1);">
-                                            <?php if ($has_image): ?>
-                                                <img src="<?= $img_url ?>" class="img-fluid" style="max-height: 100%; object-fit: contain;" alt="<?= htmlspecialchars($p['name']) ?>">
-                                            <?php else: ?>
-                                                <i class="fas fa-box-open fa-3x text-secondary opacity-50"></i>
-                                            <?php endif; ?>
-                                        </div>
+                            <div class="col-6 col-sm-4 col-md-3 col-xl-2 product-item"
+     data-name="<?= htmlspecialchars(strtolower($p['name'])) ?>"
+     data-desc="<?= htmlspecialchars(strtolower($desc)) ?>"
+     data-sku="<?= htmlspecialchars(strtolower($sku)) ?>"
+     data-category="<?= htmlspecialchars(strtolower($categoria)) ?>"
+     data-brand="<?= htmlspecialchars(strtolower($brand)) ?>"
+     data-price="<?= $price_usd ?>">
+    <div class="card h-100 shadow-sm border" style="cursor: pointer; transition: transform 0.2s;">
+        <div onclick='addToCart(<?= $p['id'] ?>, <?= json_encode($p['name']) ?>, <?= $price_usd ?>, <?= $p['stock'] ?>)' class="d-flex flex-column h-100">
+            <div class="text-center bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center" style="height: 100px; border-bottom: 1px solid rgba(0,0,0,0.1);">
+                <?php if ($has_image): ?>
+                    <img src="<?= $img_url ?>" class="img-fluid" style="max-height: 100%; object-fit: contain;" alt="<?= htmlspecialchars($p['name']) ?>">
+                <?php else: ?>
+                    <i class="fas fa-box-open fa-2x text-secondary opacity-50"></i>
+                <?php endif; ?>
+            </div>
 
-                                        <div class="card-body p-2 d-flex flex-column text-center">
-                                            <h6 class="card-title text-truncate fw-bold mb-1 w-100" title="<?= htmlspecialchars($p['name']) ?>">
-                                                <?= htmlspecialchars($p['name']) ?>
-                                            </h6>
-                                            <small class="text-muted text-truncate w-100 mb-1"><?= $desc ?></small>
+            <div class="card-body p-1 d-flex flex-column text-center">
+                <h6 class="card-title text-truncate fw-bold mb-1 w-100" title="<?= htmlspecialchars($p['name']) ?>" style="font-size: 0.9rem;">
+                    <?= htmlspecialchars($p['name']) ?>
+                </h6>
+                <small class="text-muted text-truncate w-100 mb-1" style="font-size: 0.8rem;"><?= $desc ?></small>
 
-                                            <div class="d-flex flex-wrap justify-content-center gap-1 mb-2" style="font-size: 0.70rem;">
-                                                <span class="badge bg-light text-secondary border" title="SKU"><i class="fas fa-barcode me-1"></i><?= $sku ?></span>
-                                                <span class="badge bg-light text-secondary border" title="Categoría"><i class="fas fa-tags me-1"></i><?= $categoria ?></span>
-                                                <span class="badge bg-light text-secondary border" title="Marca"><i class="fas fa-industry me-1"></i><?= $brand ?></span>
-                                            </div>
-                                            <div class="mt-auto">
-                                                <div class="text-success fw-bold fs-5">$<?= number_format($price_usd, 2) ?></div>
-                                                <div class="text-muted small mb-2">Bs <?= number_format($price_bs, 2) ?></div>
+                <div class="d-flex flex-wrap justify-content-center gap-1 mb-1" style="font-size: 0.65rem;">
+                    <span class="badge bg-light text-secondary border" title="SKU"><i class="fas fa-barcode me-1"></i><?= $sku ?></span>
+                    <span class="badge bg-light text-secondary border" title="Categoría"><i class="fas fa-tags me-1"></i><?= $categoria ?></span>
+                    <span class="badge bg-light text-secondary border" title="Marca"><i class="fas fa-industry me-1"></i><?= $brand ?></span>
+                </div>
+                <div class="mt-auto">
+                    <div class="text-success fw-bold fs-6">$<?= number_format($price_usd, 2) ?></div>
+                    <div class="text-muted small mb-1" style="font-size: 0.8rem;">Bs <?= number_format($price_bs, 2) ?></div>
 
-                                                <?php if ($is_stock): ?>
-                                                    <span class="badge text-bg-info rounded-pill">Stock: <?= $p['stock'] ?></span>
-                                                <?php else: ?>
-                                                    <span class="badge text-bg-danger rounded-pill">Agotado</span>
-                                                <?php endif; ?>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                    <?php if ($is_stock): ?>
+                        <span class="badge text-bg-info rounded-pill" style="font-size: 0.7rem;">Stock: <?= $p['stock'] ?></span>
+                    <?php else: ?>
+                        <span class="badge text-bg-danger rounded-pill" style="font-size: 0.7rem;">Agotado</span>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
                         <?php endforeach; ?>
                     </div>
                 </div>

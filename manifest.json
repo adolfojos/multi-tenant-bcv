@@ -1,5 +1,5 @@
 {
-  "name": "MultiPOS - Gestión Unificada",
+  "name": "MultiPOS",
   "short_name": "MultiPOS",
   "description": "Sistema de Punto de Venta e Inventario",
   "start_url": "./admin.php",
